@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { RoadSystem, RoadTileType, RoadOrientation } from '../roads/road-system';
+import { RoadSystem, RoadTileType, RoadOrientation, RoadTile } from '../roads/road-system';
 import { GameConfig } from '../config/game-config';
 
 // Possíveis direções para o veículo
@@ -181,7 +181,7 @@ export class VehicleController {
       // Se não encontrou uma posição válida, reverte para a posição anterior
       this.currentTileX = oldX;
       this.currentTileY = oldY;
-      this.currentDirection = this.getOppositeDirection(oldDirection);
+      this.currentDirection = this.getOppositeDirection();
       this.updateVehicleRotation();
       return;
     }
@@ -192,7 +192,7 @@ export class VehicleController {
       // Se o próximo tile não existe ou é vazio, reverte
       this.currentTileX = oldX;
       this.currentTileY = oldY;
-      this.currentDirection = this.getOppositeDirection(oldDirection);
+      this.currentDirection = this.getOppositeDirection();
       this.updateVehicleRotation();
       return;
     }
@@ -217,7 +217,7 @@ export class VehicleController {
     
     // Obter as direções possíveis exceto a oposta à atual
     const possibleDirections: VehicleDirection[] = [];
-    const oppositeDirection = this.getOppositeDirection(this.currentDirection);
+    const oppositeDirection = this.getOppositeDirection();
     
     // Verificar todas as quatro direções possíveis
     for (let dir = 0; dir < 4; dir++) {
@@ -317,7 +317,7 @@ export class VehicleController {
           this.currentDirection = VehicleDirection.SOUTH;
         } else {
           // Se não encontrou direção válida, inverte a atual
-          this.currentDirection = this.getOppositeDirection(this.currentDirection);
+          this.currentDirection = this.getOppositeDirection();
         }
       }
     }
@@ -337,15 +337,15 @@ export class VehicleController {
           this.currentDirection = VehicleDirection.WEST;
         } else {
           // Se não encontrou direção válida, inverte a atual
-          this.currentDirection = this.getOppositeDirection(this.currentDirection);
+          this.currentDirection = this.getOppositeDirection();
         }
       }
     }
   }
 
   // Obtém a direção oposta
-  private getOppositeDirection(direction: VehicleDirection): VehicleDirection {
-    switch (direction) {
+  private getOppositeDirection(): VehicleDirection {
+    switch (this.currentDirection) {
       case VehicleDirection.NORTH: return VehicleDirection.SOUTH;
       case VehicleDirection.SOUTH: return VehicleDirection.NORTH;
       case VehicleDirection.EAST: return VehicleDirection.WEST;
