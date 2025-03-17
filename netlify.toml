@@ -3,4 +3,22 @@
   publish = "dist"
 
 [build.environment]
-  NODE_VERSION = "16"
+  NODE_VERSION = "20"
+  NPM_FLAGS = "--no-audit --production=false"
+
+# Configurações para otimização de cache e performance
+[[headers]]
+  for = "/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+[[headers]]
+  for = "/assets/*"
+  [headers.values]
+    Cache-Control = "public, max-age=31536000, immutable"
+
+# Configuração para a página 404 personalizada
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
