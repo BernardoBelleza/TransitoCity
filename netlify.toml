@@ -1,10 +1,11 @@
 [build]
-  command = "npm run build"
+  command = "npm install && npm run build"
   publish = "dist"
 
 [build.environment]
   NODE_VERSION = "20"
-  NPM_FLAGS = "--no-audit --production=false"
+  NPM_CONFIG_LEGACY_PEER_DEPS = "true"
+  NPM_FLAGS = "--production=false"
 
 # Configurações para otimização de cache e performance
 [[headers]]
