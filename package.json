@@ -7,14 +7,21 @@
     "dev": "vite",
     "build": "vite build --debug",
     "preview": "vite preview",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "lint": "eslint --ext .ts,.tsx .",
+    "format": "prettier --write ."
   },
   "dependencies": {
     "three": "^0.160.0"
   },
   "devDependencies": {
+    "@eslint/js": "^9.22.0",
     "@types/three": "^0.160.0",
+    "eslint": "^9.22.0",
+    "globals": "^16.0.0",
+    "prettier": "^3.5.3",
     "typescript": "~5.7.2",
+    "typescript-eslint": "^8.26.1",
     "vite": "^5.1.4"
   }
 }
