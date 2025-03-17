@@ -5,8 +5,9 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "tsc && vite build",
-    "preview": "vite preview"
+    "build": "vite build",  // Remove a verificação do TypeScript
+    "preview": "vite preview",
+    "type-check": "tsc"     // Adiciona um script separado para verificar tipos
   },
   "devDependencies": {
     "typescript": "~5.7.2",
