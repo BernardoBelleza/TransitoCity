@@ -1,12 +1,12 @@
-import * as THREE from "three";
-import { GLTFLoader } from "three/examples/jsm/loaders/GLTFLoader";
+import * as THREE from 'three';
+import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
 
 export class ModelLoader {
   loadModel(url: string, onLoad: (model: THREE.Object3D) => void): void {
     const loader = new GLTFLoader();
-
+    
     loader.load(
-      url,
+      url, 
       (gltf) => {
         // Sucesso: modelo carregado
         const model = gltf.scene;
@@ -14,13 +14,12 @@ export class ModelLoader {
       },
       (xhr) => {
         // Progresso: opcional
-        console.log(`${(xhr.loaded / xhr.total) * 100}% carregado`);
+        console.log(`${(xhr.loaded / xhr.total * 100)}% carregado`);
       },
-      (error: any) => {
-        // Use 'any' para resolver o problema de tipo
+      (error: any) => {  // Use 'any' para resolver o problema de tipo
         // Erro: correção do tipo
-        console.error("Erro ao carregar o modelo:", error);
-      },
+        console.error('Erro ao carregar o modelo:', error);
+      }
     );
   }
 }
