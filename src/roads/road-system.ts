@@ -34,6 +34,12 @@ export class RoadSystem {
     [key in RoadTileType]?: THREE.Object3D;
   } = {};
 
+  // Propriedade para armazenar referências aos contornos
+  private gridOutlineHelpers: THREE.Object3D[] = [];
+
+  // Propriedade para controlar visibilidade
+  private gridOutlinesVisible: boolean = true;
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.roadMap = [];
@@ -303,6 +309,11 @@ export class RoadSystem {
         }
       }
     }
+    
+    // Adicionar os contornos de grade usando BoxHelper
+    this.addGridOutlines();
+    
+    console.log("Mapa configurado e contornos adicionados");
   }
 
   // Novo método para otimizar as conexões de ruas
@@ -492,9 +503,9 @@ export class RoadSystem {
       }
     } else {
       // Para ruas verticais, a direção NORTH (0) e SOUTH (2) determinam a pista
-      if (direction === 0) { // NORTH - pista oeste
+      if (direction === 2) { // NORTH - pista oeste
         offsetX = -this.laneOffset;
-      } else if (direction === 2) { // SOUTH - pista leste
+      } else if (direction === 0) { // SOUTH - pista leste
         offsetX = this.laneOffset;
       }
     }
@@ -522,5 +533,102 @@ export class RoadSystem {
       return this.roadMap[y][x];
     }
     return null;
+  }
+
+  // Adicionar este método para expor o mapa interno para o TrafficLightSystem
+  public getRoadMap(): RoadTile[][] {
+    return this.roadMap;
+  }
+
+  // Atualizar o método addGridOutlines
+  public addGridOutlines(): void {
+    // Verificar se os contornos estão habilitados
+    if (!GameConfig.GRID_OUTLINES_ENABLED) {
+      return;
+    }
+    
+    // Limpar contornos existentes primeiro
+    this.clearGridOutlines();
+    
+    const tileSize = this.tileSize;
+    
+    console.log("Adicionando contornos de grade ao mapa...");
+    
+    // Percorrer o mapa
+    for (let y = 0; y < this.roadMap.length; y++) {
+      for (let x = 0; x < this.roadMap[y].length; x++) {
+        const tile = this.roadMap[y][x];
+        
+        // Criar uma caixa invisível que servirá como base para o contorno
+        const boxGeometry = new THREE.BoxGeometry(tileSize * 0.98, 0.2, tileSize * 0.98);
+        const boxMaterial = new THREE.MeshBasicMaterial({ 
+          visible: false // Material invisível
+        });
+        const box = new THREE.Mesh(boxGeometry, boxMaterial);
+        
+        // Posicionar a caixa na célula
+        box.position.copy(tile.position);
+        box.position.y += 0.12; // Levemente acima do chão
+        
+        // Adicionar a caixa à cena
+        this.scene.add(box);
+        this.gridOutlineHelpers.push(box);
+        
+        // Criar o contorno
+        let edgeColor = 0xFFFFFF; // Branco por padrão
+        let opacity = 0.3;
+        
+        // Cores diferentes para diferentes tipos de células
+        if (tile.type === RoadTileType.INTERSECTION) {
+          edgeColor = GameConfig.GRID_OUTLINE_INTERSECTION_COLOR;
+          opacity = 0.5; // Mais visível para interseções
+        } else if (tile.type === RoadTileType.STRAIGHT) {
+          edgeColor = GameConfig.GRID_OUTLINE_ROAD_COLOR;
+          opacity = 0.4;
+        } else if (tile.type === RoadTileType.EMPTY) {
+          edgeColor = GameConfig.GRID_OUTLINE_EMPTY_COLOR;
+          opacity = 0.2; // Menos visível para células vazias
+        }
+        
+        const helper = new THREE.BoxHelper(box, edgeColor);
+        helper.material.transparent = true;
+        helper.material.opacity = opacity;
+        helper.material.linewidth = 2; // Aumentar espessura da linha (nota: não funciona em todos os navegadores)
+        
+        // Adicionar o contorno à cena
+        this.scene.add(helper);
+        this.gridOutlineHelpers.push(helper);
+      }
+    }
+    
+    console.log(`Contornos de grade adicionados (${this.gridOutlineHelpers.length / 2} células)`);
+  }
+
+  // Método para limpar os contornos
+  private clearGridOutlines(): void {
+    for (const helper of this.gridOutlineHelpers) {
+      this.scene.remove(helper);
+    }
+    this.gridOutlineHelpers = [];
+  }
+
+  // Método para alternar visibilidade
+  public toggleGridOutlines(): void {
+    this.gridOutlinesVisible = !this.gridOutlinesVisible;
+    
+    for (const helper of this.gridOutlineHelpers) {
+      helper.visible = this.gridOutlinesVisible;
+    }
+    
+    console.log(`Contornos de grade ${this.gridOutlinesVisible ? 'ativados' : 'desativados'}`);
+  }
+
+  // Método para definir visibilidade
+  public setGridOutlinesVisible(visible: boolean): void {
+    this.gridOutlinesVisible = visible;
+    
+    for (const helper of this.gridOutlineHelpers) {
+      helper.visible = visible;
+    }
   }
 }

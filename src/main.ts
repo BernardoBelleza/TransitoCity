@@ -3,9 +3,10 @@ import * as THREE from 'three';
 import { CameraControls } from './camera/camera-controls';
 import { ModelLoader } from './models/model-loader';
 import { RaycasterManager } from './interaction/raycaster-manager';
-import { RoadSystem, RoadTileType, RoadOrientation } from './roads/road-system';
+import { RoadSystem } from './roads/road-system';
 import { VehicleController, VehicleDirection } from './vehicles/vehicle-controller';
 import { GameConfig } from './config/game-config';
+import { TrafficLightSystem } from './traffic/traffic-light-system';
 
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
@@ -16,10 +17,10 @@ scene.background = new THREE.Color(GameConfig.WORLD_BACKGROUND_COLOR);
 
 // Criando a câmera
 const camera = new THREE.PerspectiveCamera(
-  75, 
-  window.innerWidth / window.innerHeight,
-  0.1,
-  1000
+  75,                                    // Campo de visão em graus
+  window.innerWidth / window.innerHeight, // Proporção da tela (aspect ratio)
+  0.1,                                   // Plano de corte próximo
+  1000                                   // Plano de corte distante
 );
 const [camX, camY, camZ] = GameConfig.CAMERA_INITIAL_POSITION;
 camera.position.set(camX, camY, camZ);
@@ -42,11 +43,11 @@ directionalLight.position.set(5, 5, 5);
 scene.add(directionalLight);
 
 // Criando um plano para o chão (grama)
-const groundGeometry = new THREE.PlaneGeometry(100, 100);
+const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
 const groundMaterial = new THREE.MeshStandardMaterial({ 
   color: 0x4CAF50,
   roughness: 0.8,
-  metalness: 0.2
+  metalness: 0.0
 });
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2; // Rotacionar para ficar horizontal
@@ -60,17 +61,20 @@ const roadSystem = new RoadSystem(scene);
 // 0 = vazio, 1 = rua reta, 2 = interseção
 // Adicionar 4 para orientação vertical (bit de orientação)
 const cityMap = [
-  [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 1, 0, 0, 0, 0],
-  [1, 1, 2, 1, 1, 1, 1],
-  [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 1, 0, 0, 0, 0],
-  [0, 0, 2, 1, 1, 0, 0],
-  [0, 0, 1, 0, 0, 0, 0],
+  [0, 0, 1, 0, 0, 1, 0],
+  [0, 0, 1, 0, 0, 1, 0],
+  [1, 1, 2, 1, 1, 2, 1],
+  [0, 0, 1, 0, 0, 1, 0],
+  [0, 0, 1, 0, 0, 1, 0],
+  [1, 1, 2, 1, 1, 2, 0],
+  [0, 0, 1, 0, 0, 1, 0],
 ];
 
 // Aplicando o mapa à cidade
 roadSystem.setRoadMap(cityMap);
+
+// Inicializando o sistema de sinaleiras APÓS configurar o mapa
+const trafficLightSystem = new TrafficLightSystem(scene, roadSystem);
 
 // Carro 1 e seu controlador
 let carModel1: THREE.Object3D;
@@ -98,7 +102,13 @@ modelLoader.loadModel(
     // Não é necessário definir a posição Y aqui, pois ela será definida pelo controlador
     
     // Criando o controlador para o primeiro carro
-    vehicleController1 = new VehicleController(carModel1, roadSystem, 1, 2, VehicleDirection.EAST);
+    vehicleController1 = new VehicleController(
+      carModel1, 
+      roadSystem, 
+      2, 2, 
+      VehicleDirection.EAST,
+      trafficLightSystem
+    );
     
     // Carregando o segundo carro
     modelLoader.loadModel(
@@ -133,7 +143,13 @@ modelLoader.loadModel(
         // Não é necessário definir a posição Y aqui, pois ela será definida pelo controlador
         
         // Criando o controlador para o segundo carro (direção oposta)
-        vehicleController2 = new VehicleController(carModel2, roadSystem, 3, 2, VehicleDirection.WEST);
+        vehicleController2 = new VehicleController(
+          carModel2, 
+          roadSystem, 
+          2, 2, 
+          VehicleDirection.WEST,
+          trafficLightSystem
+        );
       }
     );
   }
@@ -155,6 +171,14 @@ window.addEventListener('click', (event) => {
   }
 });
 
+// Adicionar esta funcionalidade para capturar teclas
+document.addEventListener('keydown', (event) => {
+  // Tecla 'G' para alternar a visualização da grade
+  if (event.key === 'g' || event.key === 'G') {
+    roadSystem.toggleGridOutlines();
+  }
+});
+
 // Variáveis para controle de tempo
 let previousTime = 0;
 
@@ -165,6 +189,9 @@ function animate(currentTime = 0) {
   // Cálculo do delta time para movimento suave
   const deltaTime = (currentTime - previousTime) / 1000;
   previousTime = currentTime;
+  
+  // Atualizar o sistema de sinaleiras
+  trafficLightSystem.update(deltaTime);
   
   // Atualizar controles de câmera
   cameraControls.update(deltaTime);

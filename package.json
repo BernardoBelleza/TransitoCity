@@ -7,13 +7,17 @@
     "dev": "vite",
     "build": "vite build --debug",
     "preview": "vite preview",
-    "type-check": "tsc"
+    "type-check": "tsc",
+    "docs": "typedoc --out docs ./src --entryPointStrategy expand --skipErrorChecking",
+    "docs:watch": "nodemon --watch ./src -e ts --exec \"npm run docs\""
   },
   "dependencies": {
     "three": "^0.160.0"
   },
   "devDependencies": {
     "@types/three": "^0.160.0",
+    "nodemon": "^3.1.9",
+    "typedoc": "^0.28.1",
     "typescript": "~5.7.2",
     "vite": "^5.1.4"
   }

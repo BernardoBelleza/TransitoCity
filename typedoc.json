@@ -1,0 +1,20 @@
+{
+  "entryPoints": [
+    "src/main.ts",
+    "src/vehicles/vehicle-controller.ts",
+    "src/roads/road-system.ts",
+    "src/models/model-loader.ts",
+    "src/camera/camera-controls.ts",
+    "src/interaction/raycaster-manager.ts"
+  ],
+  "out": "docs/api",
+  "name": "TransitoCity API",
+  "includeVersion": true,
+  "excludeExternals": true,
+  "excludePrivate": false,
+  "excludeProtected": false,
+  "readme": "none",
+  "plugin": ["typedoc-plugin-markdown"],
+  "theme": "markdown",
+  "skipErrorChecking": true
+}

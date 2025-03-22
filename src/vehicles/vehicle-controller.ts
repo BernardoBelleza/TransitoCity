@@ -28,12 +28,19 @@ export class VehicleController {
   private targetRotation: number = 0;
   private rotationSpeed: number = GameConfig.VEHICLE_ROTATION_SPEED;
 
-  constructor(vehicle: THREE.Object3D, roadSystem: RoadSystem, startX: number, startY: number, direction: VehicleDirection = VehicleDirection.EAST) {
+  // Adicionar uma nova propriedade para referência ao sistema de sinaleiras
+  private trafficLightSystem: TrafficLightSystem | null = null;
+
+  // Modificar o construtor para aceitar o parâmetro opcional do sistema de sinaleiras
+  constructor(vehicle: THREE.Object3D, roadSystem: RoadSystem, startX: number, startY: number, 
+             direction: VehicleDirection = VehicleDirection.EAST, 
+             trafficLightSystem: TrafficLightSystem | null = null) {
     this.vehicle = vehicle;
     this.roadSystem = roadSystem;
     this.currentTileX = startX;
     this.currentTileY = startY;
     this.currentDirection = direction;
+    this.trafficLightSystem = trafficLightSystem;
     
     // Posicionar o veículo no início da estrada
     this.updateVehiclePosition();
@@ -152,12 +159,12 @@ export class VehicleController {
     }
   }
 
-  // Determina o próximo quarteirão com base na direção atual
+  // Modificar o método moveToNextTile para verificar sinaleiras
   private moveToNextTile(): void {
     // Guarda a posição atual para o caso de precisar reverter
     const oldX = this.currentTileX;
     const oldY = this.currentTileY;
-    const oldDirection = this.currentDirection;
+    // const oldDirection = this.currentDirection;
     
     // Move para o próximo quarteirão com base na direção
     switch (this.currentDirection) {
@@ -199,6 +206,28 @@ export class VehicleController {
     
     // Se o próximo tile é uma interseção, decide para onde ir
     if (nextTile.type === RoadTileType.INTERSECTION) {
+      // Verificar o próximo quarteirão
+      const nextTile = this.roadSystem.getTileInfo(this.nextTileX, this.nextTileY);
+      
+      if (nextTile) {
+        // Se o próximo quarteirão é uma interseção, verifica o sinal
+        if (nextTile.type === RoadTileType.INTERSECTION && this.trafficLightSystem) {
+          // Verificar se pode atravessar a interseção
+          if (!this.trafficLightSystem.canCrossIntersection(this.nextTileX, this.nextTileY, this.currentDirection)) {
+            // Não pode atravessar, fica parado no quarteirão atual
+            this.nextTileX = this.currentTileX;
+            this.nextTileY = this.currentTileY;
+            this.tileProgress = 0; // Permanece no início do quarteirão atual
+            return;
+          }
+        }
+        
+        // Se pode continuar, atualiza para o próximo quarteirão
+        this.currentTileX = this.nextTileX;
+        this.currentTileY = this.nextTileY;
+        
+        // ... resto do código existente ...
+      }
       this.decideDirectionAtIntersection(nextTile);
     } 
     // Se o próximo tile é uma rua reta, ajusta a direção conforme a orientação da rua
@@ -211,8 +240,8 @@ export class VehicleController {
   }
 
   // Decide qual direção tomar em uma interseção
-  private decideDirectionAtIntersection(intersectionTile: RoadTile): void {
-    // Em uma interseção, temos 3 opções: seguir em frente, virar à esquerda ou à direita
+  private decideDirectionAtIntersection(): void {
+    // Em uma interseção, queremos escolher uma direção aleatória dentre as disponíveis
     // Evitar fazer um retorno (girar 180 graus)
     
     // Obter as direções possíveis exceto a oposta à atual
@@ -225,7 +254,6 @@ export class VehicleController {
         // Verificar se há uma estrada na direção
         const nextX = this.currentTileX + this.getOffsetXForDirection(dir as VehicleDirection);
         const nextY = this.currentTileY + this.getOffsetYForDirection(dir as VehicleDirection);
-        
         const nextTile = this.roadSystem.getTileInfo(nextX, nextY);
         
         // Adicionar a direção se houver uma estrada válida
@@ -250,37 +278,13 @@ export class VehicleController {
       return;
     }
     
-    // Preferência de direção: seguir em frente > virar à direita > virar à esquerda
-    // Calcular preferências
-    let bestDirection = possibleDirections[0];
-    let bestScore = -1;
+    // Escolha aleatória entre as direções disponíveis
+    const randomIndex = Math.floor(Math.random() * possibleDirections.length);
+    this.currentDirection = possibleDirections[randomIndex];
     
-    for (const dir of possibleDirections) {
-      let score = 0;
-      
-      // Seguir em frente tem maior prioridade
-      if (dir === this.currentDirection) {
-        score += 3;
-      }
-      // Virar à direita tem prioridade média
-      else if (this.isRightTurn(this.currentDirection, dir)) {
-        score += 2;
-      }
-      // Virar à esquerda tem prioridade baixa
-      else {
-        score += 1;
-      }
-      
-      // Adicionar um pouco de aleatoriedade para evitar padrões previsíveis
-      score += Math.random() * 0.5;
-      
-      if (score > bestScore) {
-        bestScore = score;
-        bestDirection = dir;
-      }
-    }
-    
-    this.currentDirection = bestDirection;
+    // Nesse ponto, a direção foi escolhida aleatoriamente
+    // O RoadSystem.getLanePosition já garante que o veículo seguirá 
+    // pela via da direita baseado na direção escolhida
   }
 
   // Verifica se uma direção é compatível com a orientação de uma rua reta
