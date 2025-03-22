@@ -342,7 +342,7 @@ export class TrafficLightSystem {
     });
   }
   
-  // Atualizar todas as sinaleiras
+  // Modificar o método update
   public update(deltaTime: number): void {
     // Para cada interseção, atualizar o estado das sinaleiras
     for (const intersection of this.intersections) {
@@ -351,16 +351,18 @@ export class TrafficLightSystem {
       // Lógica para mudar o estado das sinaleiras
       if (intersection.currentAxis === 'NS') {
         if (intersection.currentState === TrafficLightState.GREEN && 
-            intersection.timeSinceLastChange >= 10) { // 10 segundos no verde
+            intersection.timeSinceLastChange >= GameConfig.TRAFFIC_LIGHT_GREEN_DURATION) {
           // Mudar Norte-Sul para amarelo
+          console.log(`Interseção [${intersection.x},${intersection.y}]: Mudando N-S para amarelo`);
           intersection.northLight.setState(TrafficLightState.YELLOW);
           intersection.southLight.setState(TrafficLightState.YELLOW);
           intersection.currentState = TrafficLightState.YELLOW;
           intersection.timeSinceLastChange = 0;
         }
         else if (intersection.currentState === TrafficLightState.YELLOW && 
-                 intersection.timeSinceLastChange >= 3) { // 3 segundos no amarelo
+                intersection.timeSinceLastChange >= GameConfig.TRAFFIC_LIGHT_YELLOW_DURATION) {
           // Mudar Norte-Sul para vermelho e Leste-Oeste para verde
+          console.log(`Interseção [${intersection.x},${intersection.y}]: Mudando N-S para vermelho, L-O para verde`);
           intersection.northLight.setState(TrafficLightState.RED);
           intersection.southLight.setState(TrafficLightState.RED);
           intersection.eastLight.setState(TrafficLightState.GREEN);
@@ -372,7 +374,7 @@ export class TrafficLightSystem {
       }
       else { // 'EW'
         if (intersection.currentState === TrafficLightState.GREEN && 
-            intersection.timeSinceLastChange >= 10) { // 10 segundos no verde
+            intersection.timeSinceLastChange >= GameConfig.TRAFFIC_LIGHT_GREEN_DURATION) {
           // Mudar Leste-Oeste para amarelo
           intersection.eastLight.setState(TrafficLightState.YELLOW);
           intersection.westLight.setState(TrafficLightState.YELLOW);
@@ -380,7 +382,7 @@ export class TrafficLightSystem {
           intersection.timeSinceLastChange = 0;
         }
         else if (intersection.currentState === TrafficLightState.YELLOW && 
-                 intersection.timeSinceLastChange >= 3) { // 3 segundos no amarelo
+                intersection.timeSinceLastChange >= GameConfig.TRAFFIC_LIGHT_YELLOW_DURATION) {
           // Mudar Leste-Oeste para vermelho e Norte-Sul para verde
           intersection.eastLight.setState(TrafficLightState.RED);
           intersection.westLight.setState(TrafficLightState.RED);
@@ -394,19 +396,37 @@ export class TrafficLightSystem {
     }
   }
   
-  // Verificar se um veículo pode cruzar uma interseção
+  // Substituir o método canCrossIntersection por esta versão mais precisa
   public canCrossIntersection(tileX: number, tileY: number, direction: number): boolean {
     // Encontrar a interseção correspondente
     const intersection = this.intersections.find(i => i.x === tileX && i.y === tileY);
     if (!intersection) return true; // Se não encontrar, permitir o tráfego
     
-    // Verificar a direção do veículo
-    if (direction === 0 || direction === 2) { // NORTH or SOUTH
-      return intersection.northLight.getState() === TrafficLightState.GREEN || 
-             intersection.northLight.getState() === TrafficLightState.YELLOW;
-    } else { // EAST or WEST
-      return intersection.eastLight.getState() === TrafficLightState.GREEN || 
-             intersection.eastLight.getState() === TrafficLightState.YELLOW;
+    let canCross = false;
+    
+    // Verificar apenas o semáforo relevante para a direção do veículo
+    switch (direction) {
+      case 0: // NORTH
+        canCross = intersection.northLight.getState() === TrafficLightState.GREEN || 
+                   intersection.northLight.getState() === TrafficLightState.YELLOW;
+        break;
+      case 1: // EAST
+        canCross = intersection.eastLight.getState() === TrafficLightState.GREEN || 
+                   intersection.eastLight.getState() === TrafficLightState.YELLOW;
+        break;
+      case 2: // SOUTH
+        canCross = intersection.southLight.getState() === TrafficLightState.GREEN || 
+                   intersection.southLight.getState() === TrafficLightState.YELLOW;
+        break;
+      case 3: // WEST
+        canCross = intersection.westLight.getState() === TrafficLightState.GREEN || 
+                   intersection.westLight.getState() === TrafficLightState.YELLOW;
+        break;
+      default:
+        canCross = true; // Direção desconhecida, permitir passagem
     }
+    
+    console.log(`Verificação de sinal para veículo em direção ${direction} em [${tileX},${tileY}]: ${canCross ? 'PODE PASSAR' : 'PARADO'}`);
+    return canCross;
   }
 }

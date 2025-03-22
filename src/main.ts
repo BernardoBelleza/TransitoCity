@@ -146,7 +146,7 @@ modelLoader.loadModel(
         vehicleController2 = new VehicleController(
           carModel2, 
           roadSystem, 
-          2, 2, 
+          2, 5, 
           VehicleDirection.WEST,
           trafficLightSystem
         );
@@ -182,6 +182,25 @@ document.addEventListener('keydown', (event) => {
 // Variáveis para controle de tempo
 let previousTime = 0;
 
+// Adicione função para exibir informações de veículos
+
+function createDebugPanel(): HTMLElement {
+  const panel = document.createElement('div');
+  panel.style.position = 'absolute';
+  panel.style.top = '10px';
+  panel.style.left = '10px';
+  panel.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  panel.style.color = 'white';
+  panel.style.padding = '10px';
+  panel.style.fontFamily = 'monospace';
+  panel.style.fontSize = '12px';
+  panel.style.zIndex = '1000';
+  document.body.appendChild(panel);
+  return panel;
+}
+
+const debugPanel = createDebugPanel();
+
 // Função de animação
 function animate(currentTime = 0) {
   requestAnimationFrame(animate);
@@ -203,6 +222,21 @@ function animate(currentTime = 0) {
   
   if (vehicleController2) {
     vehicleController2.update(deltaTime);
+  }
+  
+  // Atualizar informações de debug
+  if (vehicleController1) {
+    const info = vehicleController1.getVehicleDebugInfo();
+    debugPanel.innerHTML = `
+      <h3>Veículo 1</h3>
+      <p>Posição: Tile (${info.tileX}, ${info.tileY})</p>
+      <p>Tipo: ${info.tileType}</p>
+      <p>Direção: ${['Norte', 'Leste', 'Sul', 'Oeste'][info.direction]}</p>
+      <p>Progresso: ${(info.progress * 100).toFixed(1)}%</p>
+      <p>Velocidade: ${info.speed.toFixed(2)}</p>
+      <p>Mundo: (${info.worldPosition.x.toFixed(1)}, ${info.worldPosition.y.toFixed(1)}, ${info.worldPosition.z.toFixed(1)})</p>
+      <p>Estado: ${info.isStopped ? 'Parado' : (info.isDecelerating ? 'Freando' : (info.isAccelerating ? 'Acelerando' : 'Normal'))}</p>
+    `;
   }
   
   renderer.render(scene, camera);

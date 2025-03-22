@@ -7,9 +7,13 @@ export class GameConfig {
   // Configurações de veículos
   static readonly VEHICLE_HEIGHT: number = 0.01;       // Altura dos veículos acima da estrada
   static readonly VEHICLE_SCALE: number = 0.7;        // Escala dos modelos de veículos
-  static readonly VEHICLE_SPEED: number = 5;          // Velocidade base dos veículos (unidades/segundo)
+  static readonly VEHICLE_SPEED: number = 0.8;        // Velocidade máxima (unidades por segundo)
+  static readonly VEHICLE_ACCELERATION: number = 0.2; // Taxa de aceleração (unidades por segundo²)
+  static readonly VEHICLE_DECELERATION: number = 0.5; // Taxa de desaceleração (unidades por segundo²)
   static readonly VEHICLE_ROTATION_SPEED: number = 2.5; // Velocidade de rotação nas curvas
   static readonly VEHICLE_REVERSE_DIRECTION: boolean = true; // Inverter a direção do modelo (girar 180°)
+  static readonly VEHICLE_STOP_DISTANCE: number = 0.1; // Distância de parada antes da interseção (0-1)
+  static readonly VEHICLE_STOP_POINT: number = 0.9; // Ponto onde o veículo para (90% do tile)
   
   // Configurações de estradas
   static readonly TILE_SIZE: number = 15;             // Tamanho de cada quarteirão
@@ -33,9 +37,9 @@ export class GameConfig {
   static readonly TRAFFIC_LIGHT_DISTANCE: number = 2.5; // Reduza de 4 para 2.5
   
   // Durações dos sinais (em segundos)
-  static readonly TRAFFIC_LIGHT_GREEN_DURATION: number = 20;     // Duração do sinal verde
-  static readonly TRAFFIC_LIGHT_YELLOW_DURATION: number = 6;     // Duração do sinal amarelo
-  static readonly TRAFFIC_LIGHT_RED_DURATION: number = 26;       // Duração do sinal vermelho (verde + amarelo da direção oposta)
+  static readonly TRAFFIC_LIGHT_GREEN_DURATION: number = 5;     // Duração do sinal verde
+  static readonly TRAFFIC_LIGHT_YELLOW_DURATION: number = 5;     // Duração do sinal amarelo
+  static readonly TRAFFIC_LIGHT_RED_DURATION: number = 6;       // Duração do sinal vermelho (verde + amarelo da direção oposta)
   
   // Cores das luzes
   static readonly TRAFFIC_LIGHT_GREEN_COLOR: number = 0x00FF00;  // Cor do sinal verde
