@@ -7,6 +7,8 @@ import { RoadSystem } from './roads/road-system';
 import { VehicleController, VehicleDirection } from './vehicles/vehicle-controller';
 import { GameConfig } from './config/game-config';
 import { TrafficLightSystem } from './traffic/traffic-light-system';
+import { BuildingManager } from './buildings/building-manager';
+import { BuildingType } from './buildings/building-types';
 
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
@@ -57,21 +59,57 @@ scene.add(ground);
 // Inicializando o sistema de estradas
 const roadSystem = new RoadSystem(scene);
 
-// Configurando uma cidade simples como exemplo
-// 0 = vazio, 1 = rua reta, 2 = interseção
-// Adicionar 4 para orientação vertical (bit de orientação)
+// Configurando uma cidade com estradas e construções
+// 0 = vazio ainda, 1 = rua reta, 2 = interseção
+// 5 = casa, 6 = prédio, 7 = loja, 8 = hotel
 const cityMap = [
-  [0, 0, 1, 0, 0, 1, 0],
-  [0, 0, 1, 0, 0, 1, 0],
+  [8, 6, 1, 7, 8, 1, 5],
+  [8, 7, 1, 6, 5, 1, 6],
   [1, 1, 2, 1, 1, 2, 1],
-  [0, 0, 1, 0, 0, 1, 0],
-  [0, 0, 1, 0, 0, 1, 0],
-  [1, 1, 2, 1, 1, 2, 0],
-  [0, 0, 1, 0, 0, 1, 0],
+  [5, 8, 1, 7, 6, 1, 7],
+  [7, 6, 1, 5, 8, 1, 8],
+  [1, 1, 2, 1, 1, 2, 5],
+  [0, 5, 1, 8, 7, 1, 0],
 ];
 
-// Aplicando o mapa à cidade
-roadSystem.setRoadMap(cityMap);
+// Modificando o código para separar a configuração de estradas e construções
+// Primeiro, criar um mapa apenas com estradas (1 e 2) e deixar o resto vazio (0)
+const roadOnlyMap = cityMap.map(row => 
+  row.map(value => (value === 1 || value === 2) ? value : 0)
+);
+
+// Aplicar apenas as estradas ao sistema de estradas
+roadSystem.setRoadMap(roadOnlyMap);
+
+// Agora o buildingManager usará o cityMap original, que contém informações
+// de construções (valores 5-8) e ainda saberá onde estão as estradas
+console.log("Iniciando sistema de construções...");
+const buildingManager = new BuildingManager(scene, roadSystem);
+
+// Colocar construções conforme o mapa original
+console.log("Mapa da cidade:", cityMap);
+buildingManager.placeBuildingsFromCityMap(cityMap);
+
+// Adicionar uma função para verificar manualmente cada posição
+function checkBuildingPlacement() {
+  for (let y = 0; y < cityMap.length; y++) {
+    for (let x = 0; x < cityMap[y].length; x++) {
+      const value = cityMap[y][x];
+      if (value >= 5 && value <= 9) {
+        console.log(`Posição (${x}, ${y}) contém: ${value}`);
+        // Teste direto de colocação
+        if (value === 5) buildingManager.placeBuilding(x, y, BuildingType.HOUSE);
+        if (value === 6) buildingManager.placeBuilding(x, y, BuildingType.APARTMENT);
+        if (value === 7) buildingManager.placeBuilding(x, y, BuildingType.SHOP);
+        if (value === 8) buildingManager.placeBuilding(x, y, BuildingType.HOTEL);
+        if (value === 9) buildingManager.placeBuilding(x, y, BuildingType.SPECIAL);
+      }
+    }
+  }
+}
+
+// Comentar a linha que chama placeBuildingsFromCityMap e descomente esta:
+// checkBuildingPlacement();
 
 // Inicializando o sistema de sinaleiras APÓS configurar o mapa
 const trafficLightSystem = new TrafficLightSystem(scene, roadSystem);
@@ -169,6 +207,28 @@ window.addEventListener('click', (event) => {
       alert('Maria Gay');
     }
   }
+  
+  // Verificar interseção com o plano do chão
+  const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+  const raycaster = raycasterManager.getRaycaster();
+  
+  if (raycaster) {
+    const intersection = new THREE.Vector3();
+    const intersects = raycaster.ray.intersectPlane(groundPlane, intersection);
+    
+    if (intersects) {
+      // Converter coordenadas do mundo para coordenadas do grid
+      const tileSize = roadSystem.getTileSize();
+      const gridX = Math.floor((intersection.x + tileSize/2) / tileSize);
+      const gridY = Math.floor((intersection.z + tileSize/2) / tileSize);
+      
+      console.log(`Clique na grade: (${gridX}, ${gridY})`);
+      
+      // Adicionar uma construção aleatória (pode ser modificado para usar o tipo selecionado)
+      const randomType = buildingManager.getRandomBuildingType();
+      buildingManager.placeBuilding(gridX, gridY, randomType);
+    }
+  }
 });
 
 // Adicionar esta funcionalidade para capturar teclas
@@ -196,6 +256,29 @@ document.addEventListener('keydown', (event) => {
     case 'w': // Oeste
       highlightDirection('west');
       break;
+  }
+});
+
+// Adicionar ao event listener de teclas
+document.addEventListener('keydown', (event) => {
+  // Teclas existentes...
+  
+  // Tecla 'B' para gerar construções aleatórias
+  if (event.key === 'b' || event.key === 'B') {
+    buildingManager.generateRandomBuildings();
+    console.log("Construções geradas aleatoriamente");
+  }
+  
+  // Tecla 'C' para limpar construções
+  if (event.key === 'c' || event.key === 'C') {
+    // Implementar limpeza se necessário
+  }
+  
+  // Números 5-8 para selecionar tipo de construção ativa
+  if (event.key >= '5' && event.key <= '8') {
+    const buildingType = parseInt(event.key);
+    console.log(`Tipo de construção selecionado: ${buildingType}`);
+    // Pode ser usado para colocar construções com o mouse depois
   }
 });
 

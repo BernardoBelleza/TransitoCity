@@ -631,4 +631,23 @@ export class RoadSystem {
       helper.visible = visible;
     }
   }
+
+  // Adicionar estes métodos para uso pelo BuildingManager
+
+  // Obter as dimensões do mapa
+  public getMapWidth(): number {
+    return this.roadMap.length > 0 ? this.roadMap[0].length : 0;
+  }
+
+  public getMapHeight(): number {
+    return this.roadMap.length;
+  }
+
+  // Obter informações sobre um tile específico
+  public getTileAt(x: number, y: number): RoadTile | null {
+    if (y >= 0 && y < this.roadMap.length && x >= 0 && x < this.roadMap[y].length) {
+      return this.roadMap[y][x];
+    }
+    return null;
+  }
 }
