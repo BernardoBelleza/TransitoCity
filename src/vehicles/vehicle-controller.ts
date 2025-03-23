@@ -58,9 +58,13 @@ export class VehicleController {
     
     // Alinhar o veículo com a direção inicial
     this.updateVehicleRotation();
+
+    // Adicionar seta de direção para debug
+    this.addDirectionArrow();
   }
 
-  // Modificar o método update para usar aceleração gradual
+  // Modificar o método update para garantir a parada completa
+
   public update(deltaTime: number): void {
     // Se o veículo está parado em um sinal vermelho, verificar se já pode continuar
     if (this.isStopped && this.trafficLightSystem) {
@@ -73,7 +77,8 @@ export class VehicleController {
         this.isAccelerating = true;   // Inicia aceleração
         this.currentSpeed = 0;        // Começa do zero
       } else {
-        // Ainda está vermelho, manter parado
+        // Ainda está vermelho, manter parado com velocidade zero
+        this.currentSpeed = 0;
         return;
       }
     }
@@ -98,28 +103,48 @@ export class VehicleController {
       // Usar o ponto de parada definido em GameConfig
       const stopPoint = GameConfig.VEHICLE_STOP_POINT;
       
+      // Verificar se chegou ou ultrapassou o ponto de parada
       if (progress >= stopPoint) {
         // Chegou ao ponto de parada, parando completamente
         console.log(`Veículo parou em ${this.currentTileX},${this.currentTileY} com progresso ${stopPoint}`);
         this.isStopped = true;
         this.isDecelerating = false;
-        this.currentSpeed = 0;  // Velocidade zero
+        this.currentSpeed = 0;  // IMPORTANTE: Definir velocidade para zero
         this.tileProgress = stopPoint;
         this.updateVehiclePosition();
         return;
       } else {
-        // Continuar desacelerando suavemente
+        // Continuar desacelerando suavemente até parar completamente
+        
+        // Distância restante até o ponto de parada
         const distanceToStop = stopPoint - progress;
         
-        // Desaceleração mais intensa quanto mais próximo do ponto de parada
-        this.currentSpeed -= GameConfig.VEHICLE_DECELERATION * deltaTime;
+        // Calcular uma desaceleração que garanta parada no ponto correto
+        // Quanto mais próximo do ponto de parada, mais intensa a desaceleração
+        const desacelerationFactor = Math.max(1, 3 - (distanceToStop * 10));
+        const adjustedDeceleration = GameConfig.VEHICLE_DECELERATION * desacelerationFactor * deltaTime;
         
-        // Garantir que a velocidade não fique negativa
-        if (this.currentSpeed < 0.05) {
-          this.currentSpeed = 0.05;  // Velocidade mínima muito baixa
+        // Reduzir a velocidade
+        this.currentSpeed = Math.max(0, this.currentSpeed - adjustedDeceleration);
+        
+        // Verificar se já está praticamente parado (velocidade muito baixa)
+        if (this.currentSpeed < 0.02) {
+          // Velocidade muito baixa, considerar como parado
+          this.currentSpeed = 0;  // IMPORTANTE: Zerar a velocidade
+          this.isStopped = true;
+          this.isDecelerating = false;
+          
+          // Ajustar o progresso para o ponto de parada
+          if (distanceToStop < 0.05) {
+            this.tileProgress = stopPoint;
+          }
+          
+          console.log("Veículo parou completamente devido à baixa velocidade");
+          this.updateVehiclePosition();
+          return;
         }
         
-        // Calcular o movimento com a velocidade atual
+        // Mover com a velocidade atual (reduzida)
         this.tileProgress += this.currentSpeed * deltaTime;
         
         // Garantir que não ultrapasse o ponto de parada
@@ -127,7 +152,7 @@ export class VehicleController {
           this.tileProgress = stopPoint;
           this.isStopped = true;
           this.isDecelerating = false;
-          this.currentSpeed = 0;
+          this.currentSpeed = 0;  // IMPORTANTE: Zerar a velocidade
         }
         
         // Atualizar a posição com a desaceleração
@@ -136,12 +161,12 @@ export class VehicleController {
       }
     }
     
+    // Verificar se precisamos começar a desacelerar para um sinal vermelho
+    this.checkForUpcomingRedLight();
+    
     // Movimento normal (sem desaceleração)
     // Usar a velocidade atual em vez de uma constante
     this.tileProgress += this.currentSpeed * deltaTime;
-    
-    // Verificar se precisamos começar a desacelerar para um sinal vermelho
-    this.checkForUpcomingRedLight();
     
     // Atualizar a posição do veículo
     this.updateVehiclePosition();
@@ -216,39 +241,29 @@ export class VehicleController {
     }
   }
 
-  // Atualiza a rotação do veículo com base na direção
+  // Correção do método updateVehicleRotation
+
   private updateVehicleRotation(): void {
-    // Rotação base para cada direção
-    let baseRotation = 0;
+    // Definir ângulos de rotação para cada direção
+    // Estes valores assumem que o modelo original aponta para Z negativo (frente)
+    const directionAngles = {
+      [VehicleDirection.NORTH]: Math.PI,           // 0 graus - frente para Z negativo
+      [VehicleDirection.EAST]: Math.PI / 2,  // 90 graus - frente para X positivo
+      [VehicleDirection.SOUTH]: 0,     // 180 graus - frente para Z positivo
+      [VehicleDirection.WEST]: -Math.PI / 2  // -90 graus - frente para X negativo
+    };
     
-    switch (this.currentDirection) {
-      case VehicleDirection.NORTH:
-        baseRotation = Math.PI;
-        break;
-      case VehicleDirection.SOUTH:
-        baseRotation = 0;
-        break;
-      case VehicleDirection.EAST:
-        baseRotation = Math.PI / 2;
-        break;
-      case VehicleDirection.WEST:
-        baseRotation = -Math.PI / 2;
-        break;
-    }
+    // Obter o ângulo desejado para a direção atual
+    const targetAngle = directionAngles[this.currentDirection];
     
-    // Adicionar 180 graus se a configuração de inverter direção estiver ativada
-    if (GameConfig.VEHICLE_REVERSE_DIRECTION) {
-      baseRotation += Math.PI;
-    }
+    // Aplicar a rotação diretamente (sem interpolação suave para debug)
+    this.vehicle.rotation.y = targetAngle;
     
-    // Normalizar a rotação para estar entre -PI e PI
-    if (baseRotation > Math.PI) baseRotation -= Math.PI * 2;
-    if (baseRotation < -Math.PI) baseRotation += Math.PI * 2;
+    // Compensar para a frente/traseira invertidas do modelo
+    // Se o modelo tiver a frente e traseira invertidas, adicione esta rotação de 180 graus
+    this.vehicle.rotation.y += Math.PI;
     
-    this.targetRotation = baseRotation;
-    
-    // Iniciar transição suave para a rotação alvo
-    this.transitioning = true;
+    console.log(`Direção: ${this.currentDirection}, Ângulo: ${(this.vehicle.rotation.y * 180 / Math.PI).toFixed(0)}°`);
   }
 
   // Atualiza gradualmente a rotação para criar uma curva suave
@@ -644,5 +659,45 @@ export class VehicleController {
       isDecelerating: this.isDecelerating || false,
       isAccelerating: this.isAccelerating || false
     };
+  }
+
+  // Novo método para adicionar seta de direção
+  private addDirectionArrow(): void {
+    // Criar geometria da seta
+    const arrowLength = 2;
+    
+    // Corpo da seta (cilindro)
+    const bodyGeometry = new THREE.CylinderGeometry(0.1, 0.1, arrowLength - 0.4, 8);
+    bodyGeometry.translate(0, 0, -arrowLength/2 + 0.2);
+    
+    // Ponta da seta (cone)
+    const tipGeometry = new THREE.ConeGeometry(0.25, 0.4, 8);
+    tipGeometry.translate(0, 0, -arrowLength + 0.2);
+    
+    // Materiais com cores diferentes para melhor visualização
+    const bodyMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 }); // Vermelho
+    const tipMaterial = new THREE.MeshBasicMaterial({ color: 0xFFFF00 });  // Amarelo
+    
+    // Criar meshes e posicioná-los
+    const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+    const tip = new THREE.Mesh(tipGeometry, tipMaterial);
+    
+    // Girar para apontar para o eixo Z negativo (frente do carro)
+    body.rotation.x = Math.PI / 2;
+    tip.rotation.x = Math.PI / 2;
+    
+    // Agrupar em um objeto auxiliar e posicionar acima do carro
+    const directionArrow = new THREE.Group();
+    directionArrow.add(body);
+    directionArrow.add(tip);
+    directionArrow.position.y = 1.5; // Posicionar acima do veículo
+    
+    // Adicionar ao veículo
+    this.vehicle.add(directionArrow);
+    
+    // Salvar referência para possíveis atualizações
+    this.vehicle.userData.directionArrow = directionArrow;
+    
+    console.log("Seta de direção adicionada ao veículo");
   }
 }

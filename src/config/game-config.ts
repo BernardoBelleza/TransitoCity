@@ -8,12 +8,13 @@ export class GameConfig {
   static readonly VEHICLE_HEIGHT: number = 0.01;       // Altura dos veículos acima da estrada
   static readonly VEHICLE_SCALE: number = 0.7;        // Escala dos modelos de veículos
   static readonly VEHICLE_SPEED: number = 0.8;        // Velocidade máxima (unidades por segundo)
-  static readonly VEHICLE_ACCELERATION: number = 0.2; // Taxa de aceleração (unidades por segundo²)
-  static readonly VEHICLE_DECELERATION: number = 0.5; // Taxa de desaceleração (unidades por segundo²)
+  static readonly VEHICLE_ACCELERATION: number = 0.5; // Taxa de aceleração (unidades por segundo²)
+  static readonly VEHICLE_DECELERATION: number = 1.5; // AUMENTADO: Taxa de desaceleração (unidades por segundo²)
+  static readonly VEHICLE_MIN_SPEED: number = 0.02;   // NOVO: Velocidade mínima considerada como "parado"
   static readonly VEHICLE_ROTATION_SPEED: number = 2.5; // Velocidade de rotação nas curvas
   static readonly VEHICLE_REVERSE_DIRECTION: boolean = true; // Inverter a direção do modelo (girar 180°)
-  static readonly VEHICLE_STOP_DISTANCE: number = 0.1; // Distância de parada antes da interseção (0-1)
-  static readonly VEHICLE_STOP_POINT: number = 0.9; // Ponto onde o veículo para (90% do tile)
+  static readonly VEHICLE_STOP_DISTANCE: number = 0.85; // AJUSTADO: Distância de parada antes da interseção (0-1)
+  static readonly VEHICLE_STOP_POINT: number = 0.85; // AJUSTADO: Ponto onde o veículo para (85% do tile)
   
   // Configurações de estradas
   static readonly TILE_SIZE: number = 15;             // Tamanho de cada quarteirão

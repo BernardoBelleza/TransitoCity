@@ -179,6 +179,106 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
+// Adicionar comandos de teclado
+
+document.addEventListener('keydown', (event) => {
+  // Teclas para destacar direções
+  switch(event.key) {
+    case 'n': // Norte
+      highlightDirection('north');
+      break;
+    case 's': // Sul
+      highlightDirection('south');
+      break;
+    case 'e': // Leste
+      highlightDirection('east');
+      break;
+    case 'w': // Oeste
+      highlightDirection('west');
+      break;
+  }
+});
+
+// Função para destacar uma direção temporariamente
+function highlightDirection(direction) {
+  // Coordenadas de cada direção
+  const directionCoords = {
+    'north': new THREE.Vector3(0, 0, -100),
+    'south': new THREE.Vector3(0, 0, 100),
+    'east': new THREE.Vector3(100, 0, 0),
+    'west': new THREE.Vector3(-100, 0, 0)
+  };
+  
+  // Cores para cada direção
+  const directionColors = {
+    'north': 0x0000FF, // Azul
+    'south': 0xFF0000, // Vermelho
+    'east': 0x00FF00,  // Verde
+    'west': 0xFFFF00   // Amarelo
+  };
+  
+  // Criar um raio temporário
+  const rayGeometry = new THREE.CylinderGeometry(0.5, 0.5, 200, 8);
+  rayGeometry.rotateX(Math.PI / 2); // Alinhar com o eixo Z
+  
+  const rayMaterial = new THREE.MeshBasicMaterial({ 
+    color: directionColors[direction],
+    transparent: true,
+    opacity: 0.7
+  });
+  
+  const ray = new THREE.Mesh(rayGeometry, rayMaterial);
+  
+  // Rotacionar o raio para a direção correta
+  if (direction === 'east') {
+    ray.rotation.y = Math.PI / 2;
+  } else if (direction === 'west') {
+    ray.rotation.y = -Math.PI / 2;
+  } else if (direction === 'south') {
+    ray.rotation.y = Math.PI;
+  }
+  
+  // Posicionar na origem
+  ray.position.set(0, 1, 0);
+  
+  // Adicionar à cena
+  scene.add(ray);
+  
+  // Adicionar texto da direção
+  const textCanvas = document.createElement('canvas');
+  textCanvas.width = 256;
+  textCanvas.height = 128;
+  const ctx = textCanvas.getContext('2d');
+  
+  ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+  ctx.fillRect(0, 0, textCanvas.width, textCanvas.height);
+  
+  ctx.font = 'Bold 48px Arial';
+  ctx.fillStyle = '#FFFFFF';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(direction.toUpperCase(), textCanvas.width/2, textCanvas.height/2);
+  
+  const texture = new THREE.CanvasTexture(textCanvas);
+  const spriteMaterial = new THREE.SpriteMaterial({ map: texture });
+  const sprite = new THREE.Sprite(spriteMaterial);
+  sprite.position.copy(directionCoords[direction].clone().multiplyScalar(0.5));
+  sprite.position.y = 10;
+  sprite.scale.set(20, 10, 1);
+  
+  scene.add(sprite);
+  
+  // Remover após alguns segundos
+  setTimeout(() => {
+    scene.remove(ray);
+    scene.remove(sprite);
+    ray.geometry.dispose();
+    ray.material.dispose();
+    sprite.material.map.dispose();
+    sprite.material.dispose();
+  }, 2000);
+}
+
 // Variáveis para controle de tempo
 let previousTime = 0;
 
@@ -200,6 +300,54 @@ function createDebugPanel(): HTMLElement {
 }
 
 const debugPanel = createDebugPanel();
+
+// Versão mais simples usando sprites
+
+function addSimpleDirectionMarkers() {
+  // Criar canvas para cada direção
+  function createTextCanvas(text, color) {
+    const canvas = document.createElement('canvas');
+    canvas.width = 128;
+    canvas.height = 128;
+    const ctx = canvas.getContext('2d');
+    
+    // Fundo transparente
+    ctx.fillStyle = 'rgba(0, 0, 0, 0)';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    
+    // Desenhar texto
+    ctx.font = 'Bold 80px Arial';
+    ctx.fillStyle = color;
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(text, canvas.width/2, canvas.height/2);
+    
+    return canvas;
+  }
+  
+  // Criar sprite para cada direção
+  function createDirectionSprite(text, position, color) {
+    const canvas = createTextCanvas(text, color);
+    const texture = new THREE.CanvasTexture(canvas);
+    
+    const material = new THREE.SpriteMaterial({ map: texture });
+    const sprite = new THREE.Sprite(material);
+    sprite.position.copy(position);
+    sprite.scale.set(10, 10, 1);
+    
+    scene.add(sprite);
+    return sprite;
+  }
+  
+  // Adicionar marcadores
+  createDirectionSprite('N', new THREE.Vector3(0, 5, -60), '#0066FF');
+  createDirectionSprite('S', new THREE.Vector3(0, 5, 60), '#FF0000');
+  createDirectionSprite('E', new THREE.Vector3(60, 5, 0), '#00CC00');
+  createDirectionSprite('W', new THREE.Vector3(-60, 5, 0), '#FFCC00');
+}
+
+// Chamar a função
+addSimpleDirectionMarkers();
 
 // Função de animação
 function animate(currentTime = 0) {
