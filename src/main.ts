@@ -9,6 +9,7 @@ import { GameConfig } from './config/game-config';
 import { TrafficLightSystem } from './traffic/traffic-light-system';
 import { BuildingManager } from './buildings/building-manager';
 import { BuildingType } from './buildings/building-types';
+import { showMariaModel } from './maria-visualizer';
 
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
@@ -63,7 +64,7 @@ const roadSystem = new RoadSystem(scene);
 // 0 = vazio ainda, 1 = rua reta, 2 = interseção
 // 5 = casa, 6 = prédio, 7 = loja, 8 = hotel
 const cityMap = [
-  [8, 6, 1, 7, 8, 1, 5],
+  [0, 6, 1, 7, 8, 1, 5],
   [8, 7, 1, 6, 5, 1, 6],
   [1, 1, 2, 1, 1, 2, 1],
   [5, 8, 1, 7, 6, 1, 7],
@@ -279,6 +280,13 @@ document.addEventListener('keydown', (event) => {
     const buildingType = parseInt(event.key);
     console.log(`Tipo de construção selecionado: ${buildingType}`);
     // Pode ser usado para colocar construções com o mouse depois
+  }
+});
+
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'm' || event.key === 'M') {
+    showMariaModel();
+    console.log("Visualizador do modelo Maria ativado");
   }
 });
 
