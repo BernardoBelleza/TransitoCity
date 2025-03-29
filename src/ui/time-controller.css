@@ -1,0 +1,108 @@
+.time-controller {
+  position: absolute;
+  bottom: 10px;
+  right: 10px;
+  width: 220px;
+  padding: 15px;
+  background-color: rgba(0, 0, 0, 0.8);
+  border-radius: 8px;
+  color: white;
+  font-family: 'Arial', sans-serif;
+  z-index: 1000;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.5);
+  user-select: none;
+}
+
+.time-controller h3 {
+  margin: 0 0 10px 0;
+  text-align: center;
+  font-size: 16px;
+  font-weight: bold;
+  color: #ddd;
+}
+
+.time-controller input[type="range"] {
+  width: 100%;
+  height: 10px;
+  margin: 10px 0;
+  cursor: pointer;
+  -webkit-appearance: none;
+  background: rgba(255, 255, 255, 0.2);
+  border-radius: 5px;
+  outline: none;
+}
+
+.time-controller input[type="range"]::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: #0088ff;
+  cursor: pointer;
+}
+
+.time-controller .time-display {
+  text-align: center;
+  margin: 10px 0;
+  font-size: 24px;
+  font-weight: bold;
+  background-color: rgba(0, 0, 0, 0.4);
+  border-radius: 5px;
+  padding: 5px;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+}
+
+.time-controller .buttons-container {
+  display: flex;
+  justify-content: space-between;
+  margin: 10px 0;
+}
+
+.time-controller .button-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  width: 48%;
+}
+
+.time-controller button {
+  padding: 8px;
+  background-color: #444444;
+  border: none;
+  border-radius: 5px;
+  color: white;
+  cursor: pointer;
+  font-size: 14px;
+  margin: 2px 0;
+  transition: all 0.2s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.time-controller button:hover {
+  background-color: #555555;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 6px rgba(0, 0, 0, 0.3);
+}
+
+.time-controller button:active {
+  background-color: #333333;
+  transform: translateY(1px);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.2);
+}
+
+.time-controller button.active {
+  background-color: #0066cc;
+  box-shadow: 0 0 8px rgba(0, 102, 204, 0.6);
+}
+
+.time-controller .speed-buttons {
+  display: flex;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  margin-top: 5px;
+}
+
+.time-controller .speed-buttons button {
+  width: 48%;
+  margin-bottom: 5px;
+}

@@ -20,4 +20,8 @@ export class RaycasterManager {
   public checkIntersection(object: THREE.Object3D): THREE.Intersection[] {
     return this.raycaster.intersectObject(object, true);
   }
+
+  public getRaycaster(): THREE.Raycaster {
+    return this.raycaster;
+  }
 }

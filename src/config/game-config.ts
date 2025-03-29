@@ -53,4 +53,25 @@ export class GameConfig {
   static readonly GRID_OUTLINE_INTERSECTION_COLOR: number = 0xFF0000; // Cor para interseções
   static readonly GRID_OUTLINE_ROAD_COLOR: number = 0x00FFFF;   // Cor para ruas
   static readonly GRID_OUTLINE_EMPTY_COLOR: number = 0x444444;  // Cor para células vazias
+
+  // Configurações de ciclo dia/noite
+  static readonly DAY_DURATION: number = 300; // Duração do ciclo dia/noite em segundos (5 minutos por padrão)
+
+  // Intensidade das luzes
+  static readonly SUN_LIGHT_INTENSITY: number = 1.0;
+  static readonly MOON_LIGHT_INTENSITY: number = 0.3;
+  static readonly AMBIENT_DAY_INTENSITY: number = 0.5;
+  static readonly AMBIENT_NIGHT_INTENSITY: number = 0.2;
+
+  // Cores da iluminação
+  static readonly SUN_LIGHT_COLOR: number = 0xffffee;
+  static readonly MOON_LIGHT_COLOR: number = 0xaabbff;
+  static readonly AMBIENT_DAY_COLOR: number = 0xffffff;
+  static readonly AMBIENT_NIGHT_COLOR: number = 0x334466;
+
+  // Cores do céu
+  static readonly SKY_DAY_COLOR: number = 0x87CEEB;
+  static readonly SKY_NOON_COLOR: number = 0x1E90FF;
+  static readonly SKY_EVENING_COLOR: number = 0xFF7F50;
+  static readonly SKY_NIGHT_COLOR: number = 0x000033;
 }

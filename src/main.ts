@@ -9,6 +9,9 @@ import { GameConfig } from './config/game-config';
 import { TrafficLightSystem } from './traffic/traffic-light-system';
 import { BuildingManager } from './buildings/building-manager';
 import { BuildingType } from './buildings/building-types';
+import { LightingManager, TimeOfDay } from './environment/lighting-manager';
+import { TimeController } from './ui/time-controller';
+import { StreetLights } from './environment/street-lights';
 
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
@@ -16,6 +19,12 @@ document.querySelector<HTMLDivElement>('#app')?.remove();
 // Criando a cena
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(GameConfig.WORLD_BACKGROUND_COLOR);
+
+// Criando o sistema de iluminação
+const lightingManager = new LightingManager(scene);
+
+// Inicializar o controlador de tempo (opcional - para interface do usuário)
+const timeController = new TimeController(lightingManager);
 
 // Criando a câmera
 const camera = new THREE.PerspectiveCamera(
@@ -32,17 +41,12 @@ camera.lookAt(lookX, lookY, lookZ);
 // Criando o renderizador
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap; // Sombras mais suaves
 document.body.appendChild(renderer.domElement);
 
 // Configurando controles de câmera
 const cameraControls = new CameraControls(camera, renderer.domElement);
-
-// Adicionando luz para que o modelo seja visível
-const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
-scene.add(ambientLight);
-const directionalLight = new THREE.DirectionalLight(0xffffff, 1);
-directionalLight.position.set(5, 5, 5);
-scene.add(directionalLight);
 
 // Criando um plano para o chão (grama)
 const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
@@ -54,6 +58,8 @@ const groundMaterial = new THREE.MeshStandardMaterial({
 const ground = new THREE.Mesh(groundGeometry, groundMaterial);
 ground.rotation.x = -Math.PI / 2; // Rotacionar para ficar horizontal
 ground.position.y = -0.05; // Ligeiramente abaixo da estrada
+ground.receiveShadow = true;
+ground.castShadow = false; // O chão não projeta sombra
 scene.add(ground);
 
 // Inicializando o sistema de estradas
@@ -113,6 +119,9 @@ function checkBuildingPlacement() {
 
 // Inicializando o sistema de sinaleiras APÓS configurar o mapa
 const trafficLightSystem = new TrafficLightSystem(scene, roadSystem);
+
+// Inicializando o sistema de luzes da rua
+const streetLights = new StreetLights(scene, roadSystem, lightingManager);
 
 // Carro 1 e seu controlador
 let carModel1: THREE.Object3D;
@@ -210,7 +219,7 @@ window.addEventListener('click', (event) => {
   
   // Verificar interseção com o plano do chão
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const raycaster = raycasterManager.getRaycaster();
+  const raycaster = raycasterManager["raycaster"]; // Acesso direto à propriedade
   
   if (raycaster) {
     const intersection = new THREE.Vector3();
@@ -225,8 +234,8 @@ window.addEventListener('click', (event) => {
       console.log(`Clique na grade: (${gridX}, ${gridY})`);
       
       // Adicionar uma construção aleatória (pode ser modificado para usar o tipo selecionado)
-      const randomType = buildingManager.getRandomBuildingType();
-      buildingManager.placeBuilding(gridX, gridY, randomType);
+      // const randomType = buildingManager.getRandomBuildingType();
+      // buildingManager.placeBuilding(gridX, gridY, randomType);
     }
   }
 });
@@ -279,6 +288,23 @@ document.addEventListener('keydown', (event) => {
     const buildingType = parseInt(event.key);
     console.log(`Tipo de construção selecionado: ${buildingType}`);
     // Pode ser usado para colocar construções com o mouse depois
+  }
+});
+
+// Tecla 'L' para debug do sistema de iluminação
+document.addEventListener('keydown', (event) => {
+  if (event.key === 'l' || event.key === 'L') {
+    const timeOfDay = lightingManager.getTimeOfDay();
+    const dayProgress = lightingManager.getDayProgress();
+    
+    console.log(`Estado atual do LightingManager:
+      - Período: ${TimeOfDay[timeOfDay]}
+      - Progresso do dia: ${dayProgress.toFixed(3)}
+      - Hora aproximada: ${Math.floor(dayProgress * 24)}:${Math.floor((dayProgress * 24 * 60) % 60).toString().padStart(2, '0')}
+    `);
+    
+    // Forçar manual update
+    lightingManager.updateLighting();
   }
 });
 
@@ -440,8 +466,14 @@ function animate(currentTime = 0) {
   const deltaTime = (currentTime - previousTime) / 1000;
   previousTime = currentTime;
   
+  // Atualizar o sistema de iluminação
+  lightingManager.update(deltaTime);
+  
   // Atualizar o sistema de sinaleiras
   trafficLightSystem.update(deltaTime);
+  
+  // Atualizar as luzes da rua
+  streetLights.update();
   
   // Atualizar controles de câmera
   cameraControls.update(deltaTime);
@@ -484,3 +516,10 @@ window.addEventListener('resize', () => {
 });
 
 console.log('Aplicação Three.js inicializada. Aguarde o carregamento do modelo 3D do carro...');
+
+// Teste de funcionamento do sistema de tempo
+console.log("Verificando sistema de tempo:");
+console.log(`- LightingManager possui setTimeOfDay: ${typeof lightingManager.setTimeOfDay === 'function'}`);
+console.log(`- LightingManager possui getDayProgress: ${typeof lightingManager.getDayProgress === 'function'}`);
+console.log(`- LightingManager possui setDayDuration: ${typeof lightingManager.setDayDuration === 'function'}`);
+console.log(`- TimeController inicializado: ${typeof timeController !== 'undefined'}`);

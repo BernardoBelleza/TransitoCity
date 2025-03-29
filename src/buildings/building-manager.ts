@@ -19,13 +19,19 @@ export class BuildingManager {
   
   // Criar modelos 3D básicos para cada tipo de construção
   private createBasicBuildingModels(): void {
+    // Ajuste os materiais para receberem sombras e iluminação corretamente
+    const houseMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xE8D0A9,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    
     // Casa (simples, com telhado)
     const houseGroup = new THREE.Group();
     
     // Base da casa
     const houseBaseGeometry = new THREE.BoxGeometry(8, 5, 8);
-    const houseBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xE8D0A9 });
-    const houseBase = new THREE.Mesh(houseBaseGeometry, houseBaseMaterial);
+    const houseBase = new THREE.Mesh(houseBaseGeometry, houseMaterial);
     houseBase.position.y = 2.5;
     houseGroup.add(houseBase);
     
