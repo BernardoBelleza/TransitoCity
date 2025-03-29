@@ -63,7 +63,7 @@ const roadSystem = new RoadSystem(scene);
 // 0 = vazio ainda, 1 = rua reta, 2 = interseção
 // 5 = casa, 6 = prédio, 7 = loja, 8 = hotel
 const cityMap = [
-  [8, 6, 1, 7, 8, 1, 5],
+  [0, 6, 1, 7, 8, 1, 5],
   [8, 7, 1, 6, 5, 1, 6],
   [1, 1, 2, 1, 1, 2, 1],
   [5, 8, 1, 7, 6, 1, 7],
