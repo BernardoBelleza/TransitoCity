@@ -20,8 +20,11 @@ document.querySelector<HTMLDivElement>('#app')?.remove();
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(GameConfig.WORLD_BACKGROUND_COLOR);
 
-// Criando o sistema de iluminação
+// Onde você inicializa os sistemas
 const lightingManager = new LightingManager(scene);
+const roadSystem = new RoadSystem(scene);
+const buildingManager = new BuildingManager(scene, roadSystem, lightingManager);
+const streetLights = new StreetLights(scene, roadSystem, lightingManager);
 
 // Inicializar o controlador de tempo (opcional - para interface do usuário)
 const timeController = new TimeController(lightingManager);
@@ -62,9 +65,6 @@ ground.receiveShadow = true;
 ground.castShadow = false; // O chão não projeta sombra
 scene.add(ground);
 
-// Inicializando o sistema de estradas
-const roadSystem = new RoadSystem(scene);
-
 // Configurando uma cidade com estradas e construções
 // 0 = vazio ainda, 1 = rua reta, 2 = interseção
 // 5 = casa, 6 = prédio, 7 = loja, 8 = hotel
@@ -90,10 +90,6 @@ roadSystem.setRoadMap(roadOnlyMap);
 // Agora o buildingManager usará o cityMap original, que contém informações
 // de construções (valores 5-8) e ainda saberá onde estão as estradas
 console.log("Iniciando sistema de construções...");
-const buildingManager = new BuildingManager(scene, roadSystem);
-
-// Colocar construções conforme o mapa original
-console.log("Mapa da cidade:", cityMap);
 buildingManager.placeBuildingsFromCityMap(cityMap);
 
 // Adicionar uma função para verificar manualmente cada posição
@@ -119,9 +115,6 @@ function checkBuildingPlacement() {
 
 // Inicializando o sistema de sinaleiras APÓS configurar o mapa
 const trafficLightSystem = new TrafficLightSystem(scene, roadSystem);
-
-// Inicializando o sistema de luzes da rua
-const streetLights = new StreetLights(scene, roadSystem, lightingManager);
 
 // Carro 1 e seu controlador
 let carModel1: THREE.Object3D;
@@ -469,11 +462,14 @@ function animate(currentTime = 0) {
   // Atualizar o sistema de iluminação
   lightingManager.update(deltaTime);
   
+  // Atualizar os postes de luz
+  streetLights.update();
+  
+  // Atualizar as janelas iluminadas
+  buildingManager.update(currentTime);
+  
   // Atualizar o sistema de sinaleiras
   trafficLightSystem.update(deltaTime);
-  
-  // Atualizar as luzes da rua
-  streetLights.update();
   
   // Atualizar controles de câmera
   cameraControls.update(deltaTime);

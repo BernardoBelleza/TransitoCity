@@ -26,13 +26,16 @@ export class LightingManager {
   private manualOverrideTimeout: number | null = null;
   
   // Constantes de horário (em formato de 24 horas)
-  private readonly SUNRISE_TIME = 6.55; // 6:33 em decimal
-  private readonly SUNSET_TIME = 18.4; // 18:24 em decimal
+  private readonly SUNRISE_TIME: number = 6.55; // 6:33 em formato decimal
+  private readonly SUNSET_TIME: number = 18.4; // 18:24 em formato decimal
   
   // Referências para elementos visuais do céu
   private sunSphere: THREE.Mesh;
   private moonSphere: THREE.Mesh;
   private stars: THREE.Points;
+
+  // Lista de listeners para mudanças de tempo
+  private timeChangeListeners: Array<() => void> = [];
   
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -129,7 +132,7 @@ export class LightingManager {
   }
   
   // Converte progresso do dia (0-1) para hora do dia (formato 24h)
-  private progressToHour(progress: number): number {
+  public progressToHour(progress: number): number {
     return progress * 24;
   }
   
@@ -239,6 +242,27 @@ export class LightingManager {
     if (hourOfDay >= 14 && hourOfDay < this.SUNSET_TIME - 1) return TimeOfDay.AFTERNOON;
     if (hourOfDay >= this.SUNSET_TIME - 1 && hourOfDay < this.SUNSET_TIME + 0.5) return TimeOfDay.EVENING;
     return TimeOfDay.NIGHT;
+  }
+  
+  // Método para obter o horário do nascer do sol
+  public getSunriseTime(): number {
+    return this.SUNRISE_TIME;
+  }
+
+  // Método para obter o horário do pôr do sol
+  public getSunsetTime(): number {
+    return this.SUNSET_TIME;
+  }
+
+  // Método para verificar se é dia ou noite
+  public isDaytime(): boolean {
+    const hourOfDay = this.getDayProgress() * 24;
+    return hourOfDay >= this.SUNRISE_TIME && hourOfDay <= this.SUNSET_TIME;
+  }
+
+  // Método para notificar mudanças de tempo
+  public onTimeChanged(callback: () => void): void {
+    this.timeChangeListeners.push(callback);
   }
   
   // Método chamado a cada frame para atualizar o sistema
@@ -376,6 +400,11 @@ export class LightingManager {
         30,  // near
         100  // far
       );
+    }
+
+    // Notificar listeners
+    for (const callback of this.timeChangeListeners) {
+      callback();
     }
   }
 }
