@@ -426,7 +426,7 @@ export class TrafficLightSystem {
         canCross = true; // Direção desconhecida, permitir passagem
     }
     
-    console.log(`Verificação de sinal para veículo em direção ${direction} em [${tileX},${tileY}]: ${canCross ? 'PODE PASSAR' : 'PARADO'}`);
+    // console.log(`Verificação de sinal para veículo em direção ${direction} em [${tileX},${tileY}]: ${canCross ? 'PODE PASSAR' : 'PARADO'}`);
     return canCross;
   }
 }
