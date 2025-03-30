@@ -12,6 +12,7 @@ import { BuildingType } from './buildings/building-types';
 import { LightingManager, TimeOfDay } from './environment/lighting-manager';
 import { TimeController } from './ui/time-controller';
 import { StreetLights } from './environment/street-lights';
+import { MultiplayerManager } from './multiplayer/multiplayer-manager';
 
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
@@ -28,6 +29,9 @@ const streetLights = new StreetLights(scene, roadSystem, lightingManager);
 
 // Inicializar o controlador de tempo (opcional - para interface do usuário)
 const timeController = new TimeController(lightingManager);
+
+// Inicializando o sistema multiplayer
+const multiplayerManager = new MultiplayerManager(scene);
 
 // Criando a câmera
 const camera = new THREE.PerspectiveCamera(
@@ -50,6 +54,10 @@ document.body.appendChild(renderer.domElement);
 
 // Configurando controles de câmera
 const cameraControls = new CameraControls(camera, renderer.domElement);
+
+// Adicione estas variáveis
+let cameraMode = 'free'; // 'free', 'follow', 'top'
+const followOffset = new THREE.Vector3(0, 5, 10); // Distância da câmera ao seguir
 
 // Criando um plano para o chão (grama)
 const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
@@ -123,6 +131,93 @@ let vehicleController1: VehicleController;
 // Carro 2 e seu controlador (direção oposta)
 let carModel2: THREE.Object3D;
 let vehicleController2: VehicleController;
+
+// Criar um jogador controlável simples
+const playerGeometry = new THREE.BoxGeometry(1, 2, 1);
+const playerMaterial = new THREE.MeshStandardMaterial({ 
+  color: 0xff0000,
+  metalness: 0.3,
+  roughness: 0.7 
+});
+const player = new THREE.Mesh(playerGeometry, playerMaterial);
+player.position.set(0, 1, 0);
+player.castShadow = true;
+player.receiveShadow = true;
+scene.add(player);
+
+// Variáveis para controle do jogador
+let playerDirection = 0; // 0=Norte, 1=Leste, 2=Sul, 3=Oeste
+const playerSpeed = 0.1;
+const playerRotations = [0, Math.PI / 2, Math.PI, -Math.PI / 2]; // N, L, S, O
+
+// Controles do jogador
+const playerControls = {
+  forward: false,
+  backward: false,
+  left: false,
+  right: false
+};
+
+// Eventos de teclado para mover o jogador
+document.addEventListener('keydown', (event) => {
+  // Teclas existentes...
+  
+  // Teclas para controlar o jogador
+  switch(event.key) {
+    case 'ArrowUp':
+      playerControls.forward = true;
+      break;
+    case 'ArrowDown':
+      playerControls.backward = true;
+      break;
+    case 'ArrowLeft':
+      playerControls.left = true;
+      break;
+    case 'ArrowRight':
+      playerControls.right = true;
+      break;
+  }
+});
+
+document.addEventListener('keyup', (event) => {
+  switch(event.key) {
+    case 'ArrowUp':
+      playerControls.forward = false;
+      break;
+    case 'ArrowDown':
+      playerControls.backward = false;
+      break;
+    case 'ArrowLeft':
+      playerControls.left = false;
+      break;
+    case 'ArrowRight':
+      playerControls.right = false;
+      break;
+  }
+});
+
+// Adicione ao event listener
+document.addEventListener('keydown', (event) => {
+  // Teclas existentes...
+  
+  // Tecla 'V' para alternar modos de câmera
+  if (event.key === 'v' || event.key === 'V') {
+    switch(cameraMode) {
+      case 'free':
+        cameraMode = 'follow';
+        console.log("Câmera: Seguindo jogador");
+        break;
+      case 'follow':
+        cameraMode = 'top';
+        console.log("Câmera: Visão aérea");
+        break;
+      case 'top':
+        cameraMode = 'free';
+        console.log("Câmera: Livre");
+        break;
+    }
+  }
+});
 
 // Carregando o modelo 3D do primeiro carro
 const modelLoader = new ModelLoader();
@@ -451,6 +546,222 @@ function addSimpleDirectionMarkers() {
 // Chamar a função
 addSimpleDirectionMarkers();
 
+// Adicione essa função no arquivo main.ts
+function teleportToPlayer(id: string): void {
+  const remotePlayer = multiplayerManager.getRemotePlayer(id);
+  if (remotePlayer) {
+    // Teleportar para 5 unidades atrás do jogador remoto
+    const position = remotePlayer.position.clone();
+    player.position.copy(position);
+    
+    // Adicionar efeito visual
+    const teleportEffect = new THREE.Mesh(
+      new THREE.TorusGeometry(2, 0.5, 16, 100),
+      new THREE.MeshBasicMaterial({ 
+        color: 0x00FFFF, 
+        transparent: true, 
+        opacity: 0.7 
+      })
+    );
+    teleportEffect.position.copy(player.position);
+    teleportEffect.rotation.x = Math.PI / 2;
+    scene.add(teleportEffect);
+    
+    // Animar e remover o efeito
+    let scale = 0.1;
+    const expandInterval = setInterval(() => {
+      scale += 0.2;
+      teleportEffect.scale.set(scale, scale, scale);
+      teleportEffect.material.opacity -= 0.05;
+      
+      if (scale >= 3) {
+        clearInterval(expandInterval);
+        scene.remove(teleportEffect);
+      }
+    }, 50);
+  }
+}
+
+// Adicione controle pelo teclado (teclas numéricas para teleportar)
+document.addEventListener('keydown', (event) => {
+  // Teclas existentes...
+  
+  // Teclas numéricas (1-9) para teleportar para jogadores
+  if (event.key >= '1' && event.key <= '9') {
+    const playerIndex = parseInt(event.key) - 1;
+    const playerIds = multiplayerManager.getConnectedPlayerIds();
+    
+    if (playerIndex < playerIds.length) {
+      teleportToPlayer(playerIds[playerIndex]);
+    }
+  }
+  
+  // Tecla 'P' para mostrar lista de jogadores
+  if (event.key === 'p' || event.key === 'P') {
+    showPlayerList();
+  }
+});
+
+// Exibir lista de jogadores conectados
+function showPlayerList(): void {
+  const playerIds = multiplayerManager.getConnectedPlayerIds();
+  const playerInfo = playerIds.map((id, index) => 
+    `${index+1}: Jogador ${id.substring(0, 5)}`
+  ).join('\n');
+  
+  // Criar elemento na tela
+  const listElement = document.createElement('div');
+  listElement.style.position = 'absolute';
+  listElement.style.top = '50%';
+  listElement.style.left = '50%';
+  listElement.style.transform = 'translate(-50%, -50%)';
+  listElement.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+  listElement.style.color = 'white';
+  listElement.style.padding = '20px';
+  listElement.style.borderRadius = '5px';
+  listElement.style.fontFamily = 'monospace';
+  listElement.style.zIndex = '1000';
+  listElement.style.width = '300px';
+  
+  listElement.innerHTML = `
+    <h3>Jogadores Conectados</h3>
+    <p>Pressione tecla numérica para teleportar</p>
+    <pre>${playerInfo}</pre>
+    <button id="close-player-list">Fechar</button>
+  `;
+  
+  document.body.appendChild(listElement);
+  
+  // Fechar a lista
+  document.getElementById('close-player-list').addEventListener('click', () => {
+    document.body.removeChild(listElement);
+  });
+}
+
+// Função para criar um minimapa
+function createMinimap(): void {
+  // Criar elemento canvas para o minimapa
+  const minimapCanvas = document.createElement('canvas');
+  minimapCanvas.width = 200;
+  minimapCanvas.height = 200;
+  minimapCanvas.id = 'minimap';
+  minimapCanvas.style.position = 'absolute';
+  minimapCanvas.style.bottom = '20px';
+  minimapCanvas.style.right = '20px';
+  minimapCanvas.style.border = '2px solid white';
+  minimapCanvas.style.borderRadius = '100px';
+  minimapCanvas.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+  document.body.appendChild(minimapCanvas);
+  
+  // Função para atualizar o minimapa
+  function updateMinimap() {
+    const ctx = minimapCanvas.getContext('2d');
+    const mapSize = roadSystem.getMapWidth() * roadSystem.getTileSize();
+    const scale = 180 / mapSize; // Escala para o tamanho do canvas
+    
+    // Limpar canvas
+    ctx.clearRect(0, 0, minimapCanvas.width, minimapCanvas.height);
+    
+    // Desenhar fundo
+    ctx.fillStyle = 'rgba(0, 100, 0, 0.3)';
+    ctx.beginPath();
+    ctx.arc(100, 100, 90, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Desenhar estradas
+    ctx.fillStyle = 'rgba(50, 50, 50, 0.7)';
+    roadSystem.getRoadMap().forEach((row, y) => {
+      row.forEach((tile, x) => {
+        if (tile.type !== 0) {
+          const screenX = 100 + (tile.position.x * scale);
+          const screenY = 100 + (tile.position.z * scale);
+          ctx.fillRect(screenX - 5, screenY - 5, 10, 10);
+        }
+      });
+    });
+    
+    // Desenhar jogador local
+    ctx.fillStyle = 'red';
+    const playerX = 100 + (player.position.x * scale);
+    const playerY = 100 + (player.position.z * scale);
+    ctx.beginPath();
+    ctx.arc(playerX, playerY, 5, 0, Math.PI * 2);
+    ctx.fill();
+    
+    // Desenhar direção do jogador
+    ctx.strokeStyle = 'white';
+    ctx.beginPath();
+    ctx.moveTo(playerX, playerY);
+    let dirX = 0, dirY = 0;
+    
+    switch(playerDirection) {
+      case 0: dirY = -8; break; // Norte
+      case 1: dirX = 8; break;  // Leste
+      case 2: dirY = 8; break;  // Sul
+      case 3: dirX = -8; break; // Oeste
+    }
+    
+    ctx.lineTo(playerX + dirX, playerY + dirY);
+    ctx.stroke();
+    
+    // Desenhar jogadores remotos
+    const playerIds = multiplayerManager.getConnectedPlayerIds();
+    playerIds.forEach(id => {
+      const remotePlayer = multiplayerManager.getRemotePlayer(id);
+      if (remotePlayer) {
+        ctx.fillStyle = 'blue';
+        const rpX = 100 + (remotePlayer.position.x * scale);
+        const rpY = 100 + (remotePlayer.position.z * scale);
+        ctx.beginPath();
+        ctx.arc(rpX, rpY, 4, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    });
+    
+    // Animar
+    requestAnimationFrame(updateMinimap);
+  }
+  
+  // Iniciar atualização do minimapa
+  updateMinimap();
+}
+
+// Chamar a função para criar o minimapa
+createMinimap();
+
+// Adicione esta função para mostrar instruções
+function showInstructions(): void {
+  const instructions = document.createElement('div');
+  instructions.style.position = 'absolute';
+  instructions.style.top = '10px';
+  instructions.style.right = '10px';
+  instructions.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+  instructions.style.color = 'white';
+  instructions.style.padding = '10px';
+  instructions.style.borderRadius = '5px';
+  instructions.style.fontFamily = 'Arial, sans-serif';
+  instructions.style.fontSize = '14px';
+  instructions.style.zIndex = '1000';
+  instructions.style.maxWidth = '300px';
+  instructions.style.pointerEvents = 'none';
+  
+  instructions.innerHTML = `
+    <h3>Controles</h3>
+    <ul>
+      <li><b>Setas</b>: Mover jogador</li>
+      <li><b>V</b>: Alternar modos de câmera</li>
+      <li><b>P</b>: Lista de jogadores</li>
+      <li><b>1-9</b>: Teleportar para jogador</li>
+      <li><b>G</b>: Mostrar/ocultar grade</li>
+    </ul>
+  `;
+  
+  document.body.appendChild(instructions);
+}
+
+// Chamar a função
+showInstructions();
+
 // Função de animação
 function animate(currentTime = 0) {
   requestAnimationFrame(animate);
@@ -474,6 +785,40 @@ function animate(currentTime = 0) {
   // Atualizar controles de câmera
   cameraControls.update(deltaTime);
   
+  // Atualizar posição da câmera baseado no modo
+  if (cameraMode === 'follow') {
+    // Calcular posição alvo baseado na direção do jogador
+    const offset = followOffset.clone();
+    
+    // Rotacionar offset baseado na direção do jogador
+    if (playerDirection === 0) { // Norte
+      // offset já está correto (atrás e acima)
+    } else if (playerDirection === 1) { // Leste
+      offset.set(10, 5, 0);
+    } else if (playerDirection === 2) { // Sul
+      offset.set(0, 5, -10);
+    } else if (playerDirection === 3) { // Oeste
+      offset.set(-10, 5, 0);
+    }
+    
+    // Posicionar câmera
+    camera.position.copy(player.position).add(offset);
+    camera.lookAt(player.position);
+    
+    // Desativar controles de câmera
+    cameraControls.enabled = false;
+  } 
+  else if (cameraMode === 'top') {
+    // Visão aérea
+    camera.position.set(player.position.x, 40, player.position.z);
+    camera.lookAt(player.position);
+    cameraControls.enabled = false;
+  }
+  else {
+    // Modo livre - reativar controles
+    cameraControls.enabled = true;
+  }
+  
   // Atualizar os veículos se estiverem carregados
   if (vehicleController1) {
     vehicleController1.update(deltaTime);
@@ -481,6 +826,30 @@ function animate(currentTime = 0) {
   
   if (vehicleController2) {
     vehicleController2.update(deltaTime);
+  }
+  
+  // Atualizar movimento do jogador
+  if (playerControls.left) {
+    playerDirection = (playerDirection + 3) % 4; // Rotacionar à esquerda
+    player.rotation.y = playerRotations[playerDirection];
+  }
+  if (playerControls.right) {
+    playerDirection = (playerDirection + 1) % 4; // Rotacionar à direita
+    player.rotation.y = playerRotations[playerDirection];
+  }
+  
+  // Movimentar para frente/trás
+  if (playerControls.forward) {
+    movePlayer(playerSpeed);
+  }
+  if (playerControls.backward) {
+    movePlayer(-playerSpeed);
+  }
+  
+  // Sincronizar posição com o servidor
+  if (playerControls.forward || playerControls.backward || 
+      playerControls.left || playerControls.right) {
+    multiplayerManager.movePlayer(player.position, playerDirection);
   }
   
   // Atualizar informações de debug
@@ -499,6 +868,29 @@ function animate(currentTime = 0) {
   }
   
   renderer.render(scene, camera);
+}
+
+// Função auxiliar para mover o jogador
+function movePlayer(speed) {
+  switch(playerDirection) {
+    case 0: // Norte
+      player.position.z -= speed;
+      break;
+    case 1: // Leste
+      player.position.x += speed;
+      break;
+    case 2: // Sul
+      player.position.z += speed;
+      break;
+    case 3: // Oeste
+      player.position.x -= speed;
+      break;
+  }
+  
+  // Manter o jogador dentro dos limites do mapa
+  const mapSize = roadSystem.getMapWidth() * roadSystem.getTileSize();
+  player.position.x = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.x));
+  player.position.z = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.z));
 }
 
 // Iniciando a animação
