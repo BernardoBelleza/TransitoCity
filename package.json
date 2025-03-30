@@ -12,6 +12,7 @@
     "docs:watch": "nodemon --watch ./src -e ts --exec \"npm run docs\""
   },
   "dependencies": {
+    "socket.io-client": "^4.8.1",
     "three": "^0.160.0"
   },
   "devDependencies": {
@@ -19,6 +20,6 @@
     "nodemon": "^3.1.9",
     "typedoc": "^0.28.1",
     "typescript": "~5.7.2",
-    "vite": "^5.1.4"
+    "vite": "^6.2.3"
   }
 }
