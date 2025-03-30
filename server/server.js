@@ -16,11 +16,8 @@ const io = new Server(server, {
     origin: [
       "https://bebelleza.netlify.app", 
       "http://localhost:5173",
-<<<<<<< Updated upstream
-      "https://bebelleza.space"  // Adicione seu domínio atual
-=======
-      "https://bebelleza.space"
->>>>>>> Stashed changes
+      "https://bebelleza.space",
+      "https://transitocity.netlify.app" // Adicione todas as origens possíveis
     ],
     methods: ["GET", "POST"]
   }

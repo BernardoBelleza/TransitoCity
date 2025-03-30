@@ -30,7 +30,7 @@ export class MultiplayerManager {
     this.beacons = [];
     
     // Conectar ao servidor WebSocket
-    const serverUrl = process.env.NODE_ENV === 'production' 
+    const serverUrl = import.meta.env.PROD 
       ? 'https://transitocity.onrender.com' 
       : 'http://localhost:3000';
       
@@ -48,6 +48,16 @@ export class MultiplayerManager {
       this.isConnected = true;
     });
     
+    // Erro de conexão
+    this.socket.on('connect_error', (error) => {
+      console.error('Erro de conexão:', error.message);
+    });
+
+    // Timeout na conexão
+    this.socket.on('connect_timeout', () => {
+      console.error('Timeout na conexão');
+    });
+
     // Receber lista inicial de jogadores
     this.socket.on('players', (players) => {
       console.log('Lista de jogadores recebida:', players);
@@ -68,6 +78,7 @@ export class MultiplayerManager {
     
     // Jogador se moveu
     this.socket.on('playerMoved', (player: PlayerState) => {
+      console.log('Recebido movimento de jogador:', player);
       this.updateRemotePlayer(player);
     });
     
