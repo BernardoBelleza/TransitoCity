@@ -19,12 +19,22 @@ export class MultiplayerManager {
   private isConnected: boolean = false;
   private beacons: THREE.Mesh[] = [];
   
+  // Adicione estas variáveis no mesmo local onde estão as outras variáveis do player
+  private targetPosition: THREE.Vector3 | null = null; // Posição de destino
+  private isMovingToTarget: boolean = false; // Flag para controlar o movimento
+  private movementSpeed: number = 0.15; // Velocidade de movimento automático (mais rápido que o movimento manual)
+  private movementMarker: THREE.Mesh | null = null; // Marcador visual no destino
+
   constructor(scene: THREE.Scene) {
     this.scene = scene;
     this.beacons = [];
     
     // Conectar ao servidor WebSocket
-    this.socket = io('http://localhost:3000');
+    const serverUrl = process.env.NODE_ENV === 'production' 
+      ? 'https://bebelleza.space' 
+      : 'http://localhost:3000';
+      
+    this.socket = io(serverUrl);
     
     // Configurar eventos do socket
     this.setupSocketEvents();

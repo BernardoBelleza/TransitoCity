@@ -14,6 +14,10 @@ import { TimeController } from './ui/time-controller';
 import { StreetLights } from './environment/street-lights';
 import { MultiplayerManager } from './multiplayer/multiplayer-manager';
 
+// Adicione no início do arquivo main.ts
+const NETWORK_UPDATE_RATE = 10; // 10 atualizações por segundo (100ms)
+let lastNetworkUpdate = 0;
+
 // Removendo o conteúdo padrão do Vite
 document.querySelector<HTMLDivElement>('#app')?.remove();
 
@@ -58,11 +62,17 @@ const cameraControls = new CameraControls(camera, renderer.domElement);
 // Adicione estas variáveis
 let cameraMode = 'free'; // 'free', 'follow', 'top'
 const followOffset = new THREE.Vector3(0, 5, 10); // Distância da câmera ao seguir
+let cameraLookTarget = new THREE.Vector3();
+let smoothCameraFollow = true; // Ativa/desativa interpolação suave da câmera
+let smoothFactor = 0.1; // Velocidade de interpolação (menor = mais suave)
+
+// Adicione uma nova variável global para armazenar a última direção
+let lastPlayerDirection = new THREE.Vector3(0, 0, -1); // Inicia olhando para o norte
 
 // Criando um plano para o chão (grama)
 const groundGeometry = new THREE.PlaneGeometry(1000, 1000);
-const groundMaterial = new THREE.MeshStandardMaterial({ 
-  color: 0x4CAF50,
+const groundMaterial = new THREE.MeshStandardMaterial({
+  color: 0x228B22,
   roughness: 0.8,
   metalness: 0.0
 });
@@ -157,6 +167,11 @@ const playerControls = {
   left: false,
   right: false
 };
+
+// Variáveis para controle de movimento
+let targetPosition: THREE.Vector3 | null = null;
+let isMovingToTarget = false;
+let movementMarker: THREE.Mesh | null = null;
 
 // Eventos de teclado para mover o jogador
 document.addEventListener('keydown', (event) => {
@@ -293,47 +308,121 @@ modelLoader.loadModel(
 // Configurando o raycaster para detectar cliques
 const raycasterManager = new RaycasterManager(camera);
 
-// Adicionando o event listener para cliques
+// Substitua ou modifique o event listener de clique existente
 window.addEventListener('click', (event) => {
-  raycasterManager.setFromMouseEvent(event);
-  
-  if (carModel1) {
-    const intersects = raycasterManager.checkIntersection(carModel1);
-    
-    if (intersects.length > 0) {
-      alert('Maria Gay');
-    }
+  // Ignorar cliques em UI
+  const clickedElement = event.target as HTMLElement;
+  if (clickedElement.tagName === 'BUTTON' || 
+      clickedElement.closest('.ui-element')) {
+    return;
   }
+
+  raycasterManager.setFromMouseEvent(event);
   
   // Verificar interseção com o plano do chão
   const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
-  const raycaster = raycasterManager["raycaster"]; // Acesso direto à propriedade
+  const raycaster = raycasterManager["raycaster"];
   
   if (raycaster) {
     const intersection = new THREE.Vector3();
     const intersects = raycaster.ray.intersectPlane(groundPlane, intersection);
     
     if (intersects) {
-      // Converter coordenadas do mundo para coordenadas do grid
-      const tileSize = roadSystem.getTileSize();
-      const gridX = Math.floor((intersection.x + tileSize/2) / tileSize);
-      const gridY = Math.floor((intersection.z + tileSize/2) / tileSize);
+      console.log(`Clique em: (${intersection.x.toFixed(2)}, ${intersection.z.toFixed(2)})`);
       
-      console.log(`Clique na grade: (${gridX}, ${gridY})`);
+      // Definir o novo destino
+      targetPosition = new THREE.Vector3(
+        intersection.x,
+        player.position.y, // Manter a mesma altura
+        intersection.z
+      );
       
-      // Adicionar uma construção aleatória (pode ser modificado para usar o tipo selecionado)
-      // const randomType = buildingManager.getRandomBuildingType();
-      // buildingManager.placeBuilding(gridX, gridY, randomType);
+      // Define o ponto clicado como alvo da câmera também
+      cameraLookTarget.copy(targetPosition);
+      
+      isMovingToTarget = true;
+      
+      // Calcular a direção para o destino (para girar o jogador)
+      updatePlayerDirectionToTarget();
+      
+      // Adicionar marcador visual
+      addClickMarker(intersection);
+      
+      // Sempre mudar para o modo "follow" quando clicar
+      cameraMode = 'follow';
+      console.log("Câmera: Seguindo jogador olhando para o destino");
     }
   }
 });
 
+// Função para adicionar marcador visual no local clicado
+function addClickMarker(position) {
+  // Remover marcador anterior se existir
+  if (movementMarker) {
+    scene.remove(movementMarker);
+  }
+  
+  // Criar novo marcador
+  const markerGeometry = new THREE.RingGeometry(0.5, 0.7, 32);
+  const markerMaterial = new THREE.MeshBasicMaterial({ 
+    color: 0x00ffff, 
+    transparent: true, 
+    opacity: 0.8,
+    side: THREE.DoubleSide
+  });
+  
+  movementMarker = new THREE.Mesh(markerGeometry, markerMaterial);
+  movementMarker.position.copy(position);
+  movementMarker.position.y = 0.1; // Ligeiramente acima do solo
+  movementMarker.rotation.x = -Math.PI / 2; // Horizontal
+  
+  // Adicionar efeito de pulso
+  movementMarker.userData = {
+    pulseTime: 0,
+    pulseSpeed: 3,
+    originalScale: 1,
+    maxScale: 1.5
+  };
+  
+  scene.add(movementMarker);
+}
+
+// Função para calcular a direção para o destino
+function updatePlayerDirectionToTarget() {
+  if (!targetPosition) return;
+  
+  // Calcular ângulo para o destino
+  const dx = targetPosition.x - player.position.x;
+  const dz = targetPosition.z - player.position.z;
+  
+  // Determinar a melhor direção (norte, leste, sul, oeste)
+  let angle = Math.atan2(dx, -dz); // Ângulo em radianos
+  
+  // Converter ângulo para nossa representação de direção (0-3)
+  // Dividir o círculo em 4 partes e mapear para nossas direções
+  // Norte: -π/4 a π/4
+  // Leste: π/4 a 3π/4
+  // Sul: 3π/4 a -3π/4
+  // Oeste: -3π/4 a -π/4
+  
+  if (angle > -Math.PI/4 && angle <= Math.PI/4) {
+    playerDirection = 0; // Norte
+  } else if (angle > Math.PI/4 && angle <= 3*Math.PI/4) {
+    playerDirection = 1; // Leste
+  } else if (angle > 3*Math.PI/4 || angle <= -3*Math.PI/4) {
+    playerDirection = 2; // Sul
+  } else {
+    playerDirection = 3; // Oeste
+  }
+  
+  // Aplicar rotação
+  player.rotation.y = playerRotations[playerDirection];
+}
+
 // Adicionar esta funcionalidade para capturar teclas
 document.addEventListener('keydown', (event) => {
   // Tecla 'G' para alternar a visualização da grade
-  if (event.key === 'g' || event.key === 'G') {
-    roadSystem.toggleGridOutlines();
-  }
+  roadSystem.toggleGridOutlines();
 });
 
 // Adicionar comandos de teclado
@@ -749,7 +838,11 @@ function showInstructions(): void {
     <h3>Controles</h3>
     <ul>
       <li><b>Setas</b>: Mover jogador</li>
+      <li><b>Clique</b>: Mover para posição</li>
+      <li><b>ESC</b>: Cancelar movimento</li>
       <li><b>V</b>: Alternar modos de câmera</li>
+      <li><b>S</b>: Alternar câmera suave</li>
+      <li><b>+/-</b>: Ajustar suavidade</li>
       <li><b>P</b>: Lista de jogadores</li>
       <li><b>1-9</b>: Teleportar para jogador</li>
       <li><b>G</b>: Mostrar/ocultar grade</li>
@@ -762,14 +855,74 @@ function showInstructions(): void {
 // Chamar a função
 showInstructions();
 
-// Função de animação
-function animate(currentTime = 0) {
-  requestAnimationFrame(animate);
+// Variáveis para controle de execução em segundo plano
+let isPageVisible = true;
+let lastTimestamp = 0;
+let fixedTimeStep = 1000 / 60; // 60 FPS em milissegundos
+let gameInterval: number | null = null;
+
+// Função para mostrar status de execução em segundo plano
+function showBackgroundStatus(isRunning: boolean): void {
+  let statusElement = document.getElementById('background-status');
   
-  // Cálculo do delta time para movimento suave
-  const deltaTime = (currentTime - previousTime) / 1000;
-  previousTime = currentTime;
+  if (!statusElement) {
+    statusElement = document.createElement('div');
+    statusElement.id = 'background-status';
+    statusElement.style.position = 'fixed';
+    statusElement.style.bottom = '10px';
+    statusElement.style.left = '10px';
+    statusElement.style.padding = '8px 12px';
+    statusElement.style.borderRadius = '4px';
+    statusElement.style.fontFamily = 'Arial, sans-serif';
+    statusElement.style.fontSize = '12px';
+    statusElement.style.zIndex = '1001';
+    document.body.appendChild(statusElement);
+  }
   
+  if (isRunning) {
+    statusElement.style.backgroundColor = 'rgba(0, 200, 0, 0.8)';
+    statusElement.textContent = 'Rodando em segundo plano';
+    statusElement.style.display = 'block';
+  } else {
+    // Esconder depois de um tempo para indicar a transição
+    setTimeout(() => {
+      statusElement.style.display = 'none';
+    }, 2000);
+    
+    statusElement.style.backgroundColor = 'rgba(200, 0, 0, 0.8)';
+    statusElement.textContent = 'Modo de primeiro plano';
+  }
+}
+
+// Atualizar a função de visibilidade para mostrar o status
+document.addEventListener('visibilitychange', () => {
+  isPageVisible = document.visibilityState === 'visible';
+  
+  if (isPageVisible) {
+    // Quando a página volta a ficar visível
+    showBackgroundStatus(false);
+    if (gameInterval) {
+      clearInterval(gameInterval);
+      gameInterval = null;
+    }
+    requestAnimationFrame(animate);
+  } else {
+    // Quando a página fica invisível
+    showBackgroundStatus(true);
+    lastTimestamp = performance.now();
+    gameInterval = window.setInterval(() => {
+      const now = performance.now();
+      const deltaTime = (now - lastTimestamp) / 1000;
+      lastTimestamp = now;
+      
+      // Executar apenas a lógica do jogo, sem renderizar
+      updateGameLogic(deltaTime);
+    }, fixedTimeStep);
+  }
+});
+
+// Função para atualizar a lógica do jogo (sem renderização)
+function updateGameLogic(deltaTime: number) {
   // Atualizar o sistema de iluminação
   lightingManager.update(deltaTime);
   
@@ -777,33 +930,153 @@ function animate(currentTime = 0) {
   streetLights.update();
   
   // Atualizar as janelas iluminadas
-  buildingManager.update(currentTime);
+  buildingManager.update(performance.now());
   
   // Atualizar o sistema de sinaleiras
   trafficLightSystem.update(deltaTime);
   
-  // Atualizar controles de câmera
-  cameraControls.update(deltaTime);
+  // Atualizar os marcadores visuais dos jogadores
+  multiplayerManager.updateBeacons(deltaTime);
+  
+  // Movimento automático para o alvo
+  if (isMovingToTarget && targetPosition) {
+    // Verificar se já chegamos próximo o suficiente do destino
+    const distanceToTarget = player.position.distanceTo(targetPosition);
+    
+    if (distanceToTarget > 0.5) {
+      // Calcular direção normalizada
+      const direction = new THREE.Vector3();
+      direction.subVectors(targetPosition, player.position).normalize();
+      
+      // Mover em direção ao alvo
+      player.position.x += direction.x * playerSpeed;
+      player.position.z += direction.z * playerSpeed;
+      
+      // Garantir que esteja dentro dos limites do mapa
+      const mapSize = roadSystem.getMapWidth() * roadSystem.getTileSize();
+      player.position.x = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.x));
+      player.position.z = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.z));
+      
+      // Atualizar direção ocasionalmente com base no caminho
+      if (Math.random() < 0.05) { // ~5% de chance por frame
+        updatePlayerDirectionToTarget();
+      }
+      
+      // Atualizar o cameraLookTarget para sempre olhar na direção do movimento
+      // Isso mantém a câmera apontando para a direção correta mesmo com curvas
+      if (distanceToTarget < 10) { // Quando estiver chegando perto
+        // Gradualmente mudar o foco para o player em vez do destino final
+        cameraLookTarget.lerp(player.position, 0.01);
+      } else {
+        // Olhar para o destino durante o percurso
+        cameraLookTarget.copy(targetPosition);
+      }
+    } else {
+      // Chegamos ao destino - salvar a direção final antes de parar
+      if (isMovingToTarget) {
+        // Salvar a direção para onde o jogador estava indo
+        const finalDirection = new THREE.Vector3();
+        finalDirection.subVectors(targetPosition, player.position).normalize();
+        lastPlayerDirection.copy(finalDirection);
+      }
+      
+      // Chegamos ao destino
+      isMovingToTarget = false;
+      
+      // Remover o marcador (apenas quando a página estiver visível novamente)
+      if (isPageVisible && movementMarker) {
+        scene.remove(movementMarker);
+        movementMarker = null;
+      }
+    }
+  }
+  
+  // Atualizar animação do marcador de clique
+  if (movementMarker) {
+    const marker = movementMarker;
+    marker.userData.pulseTime += deltaTime * marker.userData.pulseSpeed;
+    
+    const scaleFactor = marker.userData.originalScale + 
+                       Math.sin(marker.userData.pulseTime) * 0.2;
+    
+    if (isPageVisible) {
+      marker.scale.set(scaleFactor, scaleFactor, scaleFactor);
+      marker.rotation.z += deltaTime * 2;
+    }
+  }
+  
+  // Atualizar os veículos se estiverem carregados
+  if (vehicleController1) {
+    vehicleController1.update(deltaTime);
+  }
+  
+  if (vehicleController2) {
+    vehicleController2.update(deltaTime);
+  }
+  
+  // Limitar atualizações de rede
+  const currentTime = performance.now();
+  if (currentTime - lastNetworkUpdate > 1000 / NETWORK_UPDATE_RATE) {
+    lastNetworkUpdate = currentTime;
+    
+    // Só enviar atualizações para o servidor na taxa definida
+    if (isMovingToTarget && targetPosition) {
+      multiplayerManager.movePlayer(player.position, playerDirection);
+    }
+  }
+}
+
+// Modificar a função animate para usar a nova função updateGameLogic
+function animate(currentTime = 0) {
+  if (!isPageVisible) return;
+  
+  requestAnimationFrame(animate);
+  
+  // Cálculo do delta time para movimento suave
+  const deltaTime = (currentTime - previousTime) / 1000;
+  previousTime = currentTime;
+  
+  // Atualizar toda a lógica do jogo
+  updateGameLogic(deltaTime);
+  
+  // Parte exclusiva do loop visível - atualizar câmera e controles
   
   // Atualizar posição da câmera baseado no modo
   if (cameraMode === 'follow') {
-    // Calcular posição alvo baseado na direção do jogador
-    const offset = followOffset.clone();
+    // Determinar qual direção usar para a câmera
+    const dirToTarget = new THREE.Vector3();
     
-    // Rotacionar offset baseado na direção do jogador
-    if (playerDirection === 0) { // Norte
-      // offset já está correto (atrás e acima)
-    } else if (playerDirection === 1) { // Leste
-      offset.set(10, 5, 0);
-    } else if (playerDirection === 2) { // Sul
-      offset.set(0, 5, -10);
-    } else if (playerDirection === 3) { // Oeste
-      offset.set(-10, 5, 0);
+    if (isMovingToTarget && targetPosition) {
+      // Se estamos em movimento, calcular direção para o alvo
+      dirToTarget.subVectors(targetPosition, player.position).normalize();
+      
+      // Atualizar também a última direção conhecida
+      lastPlayerDirection.copy(dirToTarget);
+    } else {
+      // Se não estamos em movimento, usar a última direção conhecida
+      dirToTarget.copy(lastPlayerDirection);
     }
     
-    // Posicionar câmera
-    camera.position.copy(player.position).add(offset);
-    camera.lookAt(player.position);
+    // Criar vetor oposto para posicionar a câmera atrás do jogador
+    const backVector = dirToTarget.clone().multiplyScalar(-10); // 10 unidades atrás
+    
+    // Posição desejada da câmera (atrás do jogador)
+    const targetCameraPosition = new THREE.Vector3(
+      player.position.x + backVector.x,
+      player.position.y + 5, // 5 unidades acima
+      player.position.z + backVector.z
+    );
+    
+    // Aplicar movimento suave à câmera se ativado
+    if (smoothCameraFollow) {
+      camera.position.lerp(targetCameraPosition, smoothFactor);
+    } else {
+      camera.position.copy(targetCameraPosition);
+    }
+    
+    // Calcular ponto para olhar (ligeiramente à frente do jogador na direção salva)
+    const lookPoint = player.position.clone().add(dirToTarget.multiplyScalar(5));
+    camera.lookAt(lookPoint);
     
     // Desativar controles de câmera
     cameraControls.enabled = false;
@@ -819,82 +1092,9 @@ function animate(currentTime = 0) {
     cameraControls.enabled = true;
   }
   
-  // Atualizar os veículos se estiverem carregados
-  if (vehicleController1) {
-    vehicleController1.update(deltaTime);
-  }
-  
-  if (vehicleController2) {
-    vehicleController2.update(deltaTime);
-  }
-  
-  // Atualizar movimento do jogador
-  if (playerControls.left) {
-    playerDirection = (playerDirection + 3) % 4; // Rotacionar à esquerda
-    player.rotation.y = playerRotations[playerDirection];
-  }
-  if (playerControls.right) {
-    playerDirection = (playerDirection + 1) % 4; // Rotacionar à direita
-    player.rotation.y = playerRotations[playerDirection];
-  }
-  
-  // Movimentar para frente/trás
-  if (playerControls.forward) {
-    movePlayer(playerSpeed);
-  }
-  if (playerControls.backward) {
-    movePlayer(-playerSpeed);
-  }
-  
-  // Sincronizar posição com o servidor
-  if (playerControls.forward || playerControls.backward || 
-      playerControls.left || playerControls.right) {
-    multiplayerManager.movePlayer(player.position, playerDirection);
-  }
-  
-  // Atualizar informações de debug
-  if (vehicleController1) {
-    const info = vehicleController1.getVehicleDebugInfo();
-    debugPanel.innerHTML = `
-      <h3>Veículo 1</h3>
-      <p>Posição: Tile (${info.tileX}, ${info.tileY})</p>
-      <p>Tipo: ${info.tileType}</p>
-      <p>Direção: ${['Norte', 'Leste', 'Sul', 'Oeste'][info.direction]}</p>
-      <p>Progresso: ${(info.progress * 100).toFixed(1)}%</p>
-      <p>Velocidade: ${info.speed.toFixed(2)}</p>
-      <p>Mundo: (${info.worldPosition.x.toFixed(1)}, ${info.worldPosition.y.toFixed(1)}, ${info.worldPosition.z.toFixed(1)})</p>
-      <p>Estado: ${info.isStopped ? 'Parado' : (info.isDecelerating ? 'Freando' : (info.isAccelerating ? 'Acelerando' : 'Normal'))}</p>
-    `;
-  }
-  
+  // Parte de renderização
   renderer.render(scene, camera);
 }
-
-// Função auxiliar para mover o jogador
-function movePlayer(speed) {
-  switch(playerDirection) {
-    case 0: // Norte
-      player.position.z -= speed;
-      break;
-    case 1: // Leste
-      player.position.x += speed;
-      break;
-    case 2: // Sul
-      player.position.z += speed;
-      break;
-    case 3: // Oeste
-      player.position.x -= speed;
-      break;
-  }
-  
-  // Manter o jogador dentro dos limites do mapa
-  const mapSize = roadSystem.getMapWidth() * roadSystem.getTileSize();
-  player.position.x = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.x));
-  player.position.z = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.z));
-}
-
-// Iniciando a animação
-animate();
 
 // Ajustando o tamanho da tela
 window.addEventListener('resize', () => {
