@@ -49,10 +49,9 @@ export class MultiplayerManager {
     });
     
     // Receber lista inicial de jogadores
-    this.socket.on('players', (players: PlayerState[]) => {
-      console.log('Recebidos jogadores existentes:', players.length);
-      
-      players.forEach(player => {
+    this.socket.on('players', (players) => {
+      console.log('Lista de jogadores recebida:', players);
+      players.forEach((player) => {
         if (player.id !== this.localPlayerId) {
           this.addRemotePlayer(player);
         }
@@ -60,9 +59,11 @@ export class MultiplayerManager {
     });
     
     // Novo jogador entrou
-    this.socket.on('playerJoined', (player: PlayerState) => {
-      console.log('Novo jogador entrou:', player.id);
-      this.addRemotePlayer(player);
+    this.socket.on('playerJoined', (player) => {
+      console.log('Novo jogador conectado:', player);
+      if (player.id !== this.localPlayerId) {
+        this.addRemotePlayer(player);
+      }
     });
     
     // Jogador se moveu
