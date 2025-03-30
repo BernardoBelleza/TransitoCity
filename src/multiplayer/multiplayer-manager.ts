@@ -11,6 +11,12 @@ interface PlayerState {
   model: string;
 }
 
+interface GameState {
+  currentWeather: WeatherType;
+  currentTime: number; // Horário do jogo em minutos desde meia-noite
+  // outros estados que precisam ser sincronizados
+}
+
 export class MultiplayerManager {
   private socket: Socket;
   private scene: THREE.Scene;
@@ -38,6 +44,13 @@ export class MultiplayerManager {
     
     // Configurar eventos do socket
     this.setupSocketEvents();
+
+    // Configurar sincronização de estado do jogo
+    this.socket.on('gameStateUpdate', (gameState: GameState) => {
+      // Aplicar estado recebido do servidor
+      weatherManager.setWeather(gameState.currentWeather);
+      lightingManager.setTimeOfDay(gameState.currentTime);
+    });
   }
   
   private setupSocketEvents(): void {
@@ -232,5 +245,11 @@ export class MultiplayerManager {
   // Retornar lista de IDs de jogadores conectados
   public getConnectedPlayerIds(): string[] {
     return Array.from(this.remotePlayers.keys());
+  }
+
+  // Método para sincronizar estado
+  public syncGameState(gameState: GameState): void {
+    // Enviar para todos os jogadores conectados
+    this.socket.emit('gameStateUpdate', gameState);
   }
 }

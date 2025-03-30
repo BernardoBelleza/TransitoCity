@@ -13,6 +13,7 @@ import { LightingManager, TimeOfDay } from './environment/lighting-manager';
 import { TimeController } from './ui/time-controller';
 import { StreetLights } from './environment/street-lights';
 import { MultiplayerManager } from './multiplayer/multiplayer-manager';
+import { WeatherManager, WeatherType } from './environment/weather-manager';
 
 // Adicione no início do arquivo main.ts
 const NETWORK_UPDATE_RATE = 10; // 10 atualizações por segundo (100ms)
@@ -30,9 +31,11 @@ const lightingManager = new LightingManager(scene);
 const roadSystem = new RoadSystem(scene);
 const buildingManager = new BuildingManager(scene, roadSystem, lightingManager);
 const streetLights = new StreetLights(scene, roadSystem, lightingManager);
+// Adicione esta linha
+const weatherManager = new WeatherManager(scene, lightingManager);
 
 // Inicializar o controlador de tempo (opcional - para interface do usuário)
-const timeController = new TimeController(lightingManager);
+// const timeController = new TimeController(lightingManager);
 
 // Inicializando o sistema multiplayer
 const multiplayerManager = new MultiplayerManager(scene);
@@ -427,23 +430,23 @@ document.addEventListener('keydown', (event) => {
 
 // Adicionar comandos de teclado
 
-document.addEventListener('keydown', (event) => {
-  // Teclas para destacar direções
-  switch(event.key) {
-    case 'n': // Norte
-      highlightDirection('north');
-      break;
-    case 's': // Sul
-      highlightDirection('south');
-      break;
-    case 'e': // Leste
-      highlightDirection('east');
-      break;
-    case 'w': // Oeste
-      highlightDirection('west');
-      break;
-  }
-});
+// document.addEventListener('keydown', (event) => {
+//   // Teclas para destacar direções
+//   switch(event.key) {
+//     case 'n': // Norte
+//       highlightDirection('north');
+//       break;
+//     case 's': // Sul
+//       highlightDirection('south');
+//       break;
+//     case 'e': // Leste
+//       highlightDirection('east');
+//       break;
+//     case 'w': // Oeste
+//       highlightDirection('west');
+//       break;
+//   }
+// });
 
 // Adicionar ao event listener de teclas
 document.addEventListener('keydown', (event) => {
@@ -482,6 +485,28 @@ document.addEventListener('keydown', (event) => {
     
     // Forçar manual update
     lightingManager.updateLighting();
+  }
+});
+
+// Adicione ao event listener de teclado
+document.addEventListener('keydown', (event) => {
+  // Teclas existentes...
+  
+  // Tecla 'W' para testar diferentes condições climáticas
+  if (event.key === 'w' || event.key === 'W') {
+    const weatherTypes = Object.keys(WeatherType)
+      .filter(key => isNaN(Number(key)))
+      .map(key => WeatherType[key]);
+    
+    const nextWeatherIndex = (weatherTypes.indexOf(weatherManager.getCurrentWeather()) + 1) % weatherTypes.length;
+    weatherManager.setWeather(nextWeatherIndex);
+    console.log(`Clima alterado para: ${WeatherType[nextWeatherIndex]}`);
+  }
+  
+  // Tecla 'R' para atualizar os dados climáticos da API
+  if (event.key === 'r' || event.key === 'R') {
+    weatherManager.fetchWeatherData();
+    console.log("Atualizando dados climáticos...");
   }
 });
 
@@ -585,7 +610,7 @@ function createDebugPanel(): HTMLElement {
   return panel;
 }
 
-const debugPanel = createDebugPanel();
+// const debugPanel = createDebugPanel();
 
 // Versão mais simples usando sprites
 
@@ -925,6 +950,9 @@ document.addEventListener('visibilitychange', () => {
 function updateGameLogic(deltaTime: number) {
   // Atualizar o sistema de iluminação
   lightingManager.update(deltaTime);
+  
+  // Atualizar o sistema de clima (adicione esta linha)
+  weatherManager.update(deltaTime);
   
   // Atualizar os postes de luz
   streetLights.update();

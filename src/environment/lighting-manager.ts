@@ -24,6 +24,8 @@ export class LightingManager {
   private isPaused: boolean = false;
   private manuallySet: boolean = false;
   private manualOverrideTimeout: number | null = null;
+  private lastTimeUpdate: number = 0;
+  private readonly UPDATE_INTERVAL: number = 15 * 60 * 1000; // 15 minutos em milissegundos
   
   // Constantes de horário (em formato de 24 horas)
   private readonly SUNRISE_TIME: number = 6.55; // 6:33 em formato decimal
@@ -36,6 +38,9 @@ export class LightingManager {
 
   // Lista de listeners para mudanças de tempo
   private timeChangeListeners: Array<() => void> = [];
+  
+  // Multiplicador de intensidade de luz
+  private lightIntensityMultiplier: number = 1.0;
   
   constructor(scene: THREE.Scene) {
     this.scene = scene;
@@ -121,9 +126,10 @@ export class LightingManager {
     scene.add(this.stars);
     
     // Configurar hora inicial
-    this.setTimeOfDay(TimeOfDay.MORNING);
+    this.syncWithBrasiliaTime(); // Inicializar com horário real
+    this.lastTimeUpdate = Date.now();
     
-    console.log("Sistema de iluminação inicializado");
+    console.log("Sistema de iluminação inicializado com horário de Brasília");
   }
   
   // Converte hora do dia (formato 24h) para progresso do dia (0-1)
@@ -267,17 +273,17 @@ export class LightingManager {
   
   // Método chamado a cada frame para atualizar o sistema
   public update(deltaTime: number): void {
-    // Se estiver em pausa ou definido manualmente, não atualizar o progresso
+    // Se estiver em pausa ou definido manualmente, não atualizar
     if (this.isPaused || this.manuallySet) return;
     
-    // Atualizar o tempo decorrido
-    this.timeElapsed += deltaTime;
+    const currentTime = Date.now();
     
-    // Calcular o novo progresso do dia (0-1)
-    this.dayProgress = (this.timeElapsed % this.dayDuration) / this.dayDuration;
-    
-    // Atualizar a iluminação com o novo progresso
-    this.updateLighting();
+    // Verificar se passaram 15 minutos desde a última atualização
+    if (currentTime - this.lastTimeUpdate >= this.UPDATE_INTERVAL) {
+      // Sincronizar com o horário de Brasília
+      this.syncWithBrasiliaTime();
+      this.lastTimeUpdate = currentTime;
+    }
   }
   
   // Método para atualizar a iluminação com base no progresso do dia
@@ -290,9 +296,19 @@ export class LightingManager {
     let sunAngle = 0;
     
     if (isDaytime) {
-      // Durante o dia, o sol se move em arco de 0 a 180 graus
-      const dayProgress = (hourOfDay - this.SUNRISE_TIME) / (this.SUNSET_TIME - this.SUNRISE_TIME);
-      sunAngle = dayProgress * Math.PI;
+      // Definir meio-dia exato
+      const midday = 12.0;
+      
+      // Calcular ângulo baseado na relação com o meio-dia
+      if (hourOfDay <= midday) {
+        // Manhã até meio-dia
+        const progress = (hourOfDay - this.SUNRISE_TIME) / (midday - this.SUNRISE_TIME);
+        sunAngle = progress * (Math.PI / 2); // 0 a π/2
+      } else {
+        // Meio-dia até pôr do sol
+        const progress = (hourOfDay - midday) / (this.SUNSET_TIME - midday);
+        sunAngle = (Math.PI / 2) + progress * (Math.PI / 2); // π/2 a π
+      }
     } else if (hourOfDay < this.SUNRISE_TIME) {
       // Antes do nascer do sol (entre meia-noite e o nascer do sol)
       // Sun below horizon, angle between 180 and 360
@@ -307,8 +323,8 @@ export class LightingManager {
     
     // Calcular a posição do sol
     const sunDistance = 100;
-    const sunX = Math.sin(sunAngle) * sunDistance;
-    const sunY = Math.cos(sunAngle) * sunDistance;
+    const sunX = Math.cos(sunAngle) * sunDistance;
+    const sunY = Math.sin(sunAngle) * sunDistance;
     
     // Posicionar o sol e sua luz
     this.sunSphere.position.set(sunX, sunY, 0);
@@ -353,9 +369,9 @@ export class LightingManager {
     }
     
     // Aplicar intensidades
-    this.sunLight.intensity = sunIntensity;
-    this.moonLight.intensity = moonIntensity;
-    this.ambientLight.intensity = ambientIntensity;
+    this.sunLight.intensity = sunIntensity * this.lightIntensityMultiplier;
+    this.moonLight.intensity = moonIntensity * this.lightIntensityMultiplier;
+    this.ambientLight.intensity = ambientIntensity * this.lightIntensityMultiplier;
     
     // Visibilidade dos astros
     (this.sunSphere.material as THREE.MeshBasicMaterial).opacity = isDaytime ? 0.9 : 0;
@@ -406,5 +422,33 @@ export class LightingManager {
     for (const callback of this.timeChangeListeners) {
       callback();
     }
+  }
+
+  // Método para sincronizar com o horário de Brasília
+  private syncWithBrasiliaTime(): void {
+    // Obter data e hora atual
+    const now = new Date();
+    
+    // Converter para fuso horário de Brasília (UTC-3)
+    const brasiliaHours = now.getUTCHours() - 3;
+    const adjustedHours = brasiliaHours < 0 ? brasiliaHours + 24 : brasiliaHours;
+    const minutes = now.getUTCMinutes();
+    
+    // Converter para formato decimal (horas.minutos)
+    const decimalTime = adjustedHours + (minutes / 60);
+    
+    // Converter para progresso do dia (0-1)
+    this.dayProgress = decimalTime / 24;
+    
+    // Atualizar iluminação
+    this.updateLighting();
+    
+    console.log(`Sincronizado com horário de Brasília: ${adjustedHours}:${minutes.toString().padStart(2, '0')} (progresso: ${this.dayProgress.toFixed(3)})`);
+  }
+
+  // Método para definir o multiplicador de intensidade de luz
+  public setLightIntensityMultiplier(multiplier: number): void {
+    this.lightIntensityMultiplier = Math.max(0.2, Math.min(1.0, multiplier));
+    this.updateLighting(); // Atualizar iluminação com o novo multiplicador
   }
 }
