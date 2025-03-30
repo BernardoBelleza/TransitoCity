@@ -29,6 +29,10 @@ scene.background = new THREE.Color(GameConfig.WORLD_BACKGROUND_COLOR);
 // Onde você inicializa os sistemas
 const lightingManager = new LightingManager(scene);
 const roadSystem = new RoadSystem(scene);
+
+// Adicione esta linha para desativar o grid por padrão
+// roadSystem.toggleGridOutlines(); // Começar com o grid desativado
+
 const buildingManager = new BuildingManager(scene, roadSystem, lightingManager);
 const streetLights = new StreetLights(scene, roadSystem, lightingManager);
 // Adicione esta linha
@@ -107,6 +111,9 @@ const roadOnlyMap = cityMap.map(row =>
 
 // Aplicar apenas as estradas ao sistema de estradas
 roadSystem.setRoadMap(roadOnlyMap);
+
+// Desativar os contornos do grid imediatamente após criar o mapa
+roadSystem.setGridOutlinesVisible(false);
 
 // Agora o buildingManager usará o cityMap original, que contém informações
 // de construções (valores 5-8) e ainda saberá onde estão as estradas
@@ -234,6 +241,14 @@ document.addEventListener('keydown', (event) => {
         console.log("Câmera: Livre");
         break;
     }
+  }
+});
+
+// Adicionar esta funcionalidade para capturar teclas
+document.addEventListener('keydown', (event) => {
+  // Tecla 'G' para alternar a visualização da grade
+  if (event.key === 'g' || event.key === 'G') {
+    roadSystem.toggleGridOutlines();
   }
 });
 
@@ -421,12 +436,6 @@ function updatePlayerDirectionToTarget() {
   // Aplicar rotação
   player.rotation.y = playerRotations[playerDirection];
 }
-
-// Adicionar esta funcionalidade para capturar teclas
-document.addEventListener('keydown', (event) => {
-  // Tecla 'G' para alternar a visualização da grade
-  roadSystem.toggleGridOutlines();
-});
 
 // Adicionar comandos de teclado
 
@@ -980,10 +989,10 @@ function updateGameLogic(deltaTime: number) {
       player.position.x += direction.x * playerSpeed;
       player.position.z += direction.z * playerSpeed;
       
-      // Garantir que esteja dentro dos limites do mapa
-      const mapSize = roadSystem.getMapWidth() * roadSystem.getTileSize();
-      player.position.x = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.x));
-      player.position.z = Math.max(-mapSize/2, Math.min(mapSize/2, player.position.z));
+      // Apenas manter restrições básicas para não cair fora do mundo
+      const worldBoundary = 1000; // Valor muito maior que permitirá movimento amplo
+      player.position.x = Math.max(-worldBoundary, Math.min(worldBoundary, player.position.x));
+      player.position.z = Math.max(-worldBoundary, Math.min(worldBoundary, player.position.z));
       
       // Atualizar direção ocasionalmente com base no caminho
       if (Math.random() < 0.05) { // ~5% de chance por frame
