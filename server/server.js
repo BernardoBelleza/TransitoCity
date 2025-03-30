@@ -26,6 +26,7 @@ const io = new Server(server, {
   }
 });
 
+// Endpoint para verificar status
 app.get('/status', (req, res) => {
   res.json({
     status: 'online',
