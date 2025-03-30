@@ -31,7 +31,7 @@ export class MultiplayerManager {
     
     // Conectar ao servidor WebSocket
     const serverUrl = process.env.NODE_ENV === 'production' 
-      ? 'https://bebelleza.space' 
+      ? 'https://transitocity.onrender.com' 
       : 'http://localhost:3000';
       
     this.socket = io(serverUrl);
