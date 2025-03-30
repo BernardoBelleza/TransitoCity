@@ -10,7 +10,11 @@ app.use(cors());
 const server = http.createServer(app);
 const io = new Server(server, {
   cors: {
-    origin: ["https://bebelleza.netlify.app", "http://localhost:5173"],
+    origin: [
+      "https://bebelleza.netlify.app", 
+      "http://localhost:5173",
+      "https://bebelleza.space"  // Adicione seu domínio atual
+    ],
     methods: ["GET", "POST"]
   }
 });
