@@ -2,30 +2,61 @@ import * as THREE from 'three';
 import { BuildingType } from './building-types';
 import { RoadSystem, RoadTileType } from '../roads/road-system';
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader';
+import { LightingManager } from '../lighting/lighting-manager';
 
 export class BuildingManager {
   private scene: THREE.Scene;
   private roadSystem: RoadSystem;
   private buildings: Map<string, THREE.Object3D> = new Map();
   private buildingModels: { [key in BuildingType]?: THREE.Group } = {};
+  private windowMaterials: THREE.MeshStandardMaterial[] = [];
+  private lightingManager: LightingManager | null = null;
+  private windowLightStates: Map<THREE.Material, number> = new Map();
+  private lastLightUpdate: number = 0;
+  private lightUpdateInterval: number = 60000; // 1 minuto em milissegundos
+  private lastTimeState: boolean = false; // true = noite, false = dia
+  private lightSimulationInterval: number = 10000; // 10 segundos
+  private lastLightSimulation: number = 0;
   
-  constructor(scene: THREE.Scene, roadSystem: RoadSystem) {
+  constructor(scene: THREE.Scene, roadSystem: RoadSystem, lightingManager?: LightingManager) {
     this.scene = scene;
     this.roadSystem = roadSystem;
+    this.lightingManager = lightingManager || null;
     
     // Criar modelos básicos (serão substituídos por GLB no futuro)
     this.createBasicBuildingModels();
+    
+    // Configurar callback para iluminação, se disponível
+    if (this.lightingManager) {
+      this.setupLightingEvents();
+    }
   }
   
   // Criar modelos 3D básicos para cada tipo de construção
   private createBasicBuildingModels(): void {
+    // Ajuste os materiais para receberem sombras e iluminação corretamente
+    const houseMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xE8D0A9,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    
+    // Definição do material da janela (usado pela casa)
+    const windowMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x87CEEB,
+      transparent: true,
+      opacity: 0.7,
+      emissive: 0xffffaa,
+      emissiveIntensity: 0 // Começa desligado
+    });
+    this.windowMaterials.push(windowMaterial);
+    
     // Casa (simples, com telhado)
     const houseGroup = new THREE.Group();
     
     // Base da casa
     const houseBaseGeometry = new THREE.BoxGeometry(8, 5, 8);
-    const houseBaseMaterial = new THREE.MeshStandardMaterial({ color: 0xE8D0A9 });
-    const houseBase = new THREE.Mesh(houseBaseGeometry, houseBaseMaterial);
+    const houseBase = new THREE.Mesh(houseBaseGeometry, houseMaterial);
     houseBase.position.y = 2.5;
     houseGroup.add(houseBase);
     
@@ -39,11 +70,6 @@ export class BuildingManager {
     
     // Adicionar janelas
     const windowGeometry = new THREE.PlaneGeometry(2, 2);
-    const windowMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0x87CEEB,
-      transparent: true,
-      opacity: 0.7
-    });
     
     // Janela frente
     const frontWindow = new THREE.Mesh(windowGeometry, windowMaterial);
@@ -94,27 +120,29 @@ export class BuildingManager {
     apartmentGroup.add(roofTop);
     
     // Janelas
+    const apartmentWindowMaterial = windowMaterial.clone();
+    this.windowMaterials.push(apartmentWindowMaterial);
     for (let floor = 0; floor < 6; floor++) {
       for (let i = -1; i <= 1; i++) {
         // Janelas frontais
-        const windowFront = new THREE.Mesh(windowGeometry, windowMaterial);
+        const windowFront = new THREE.Mesh(windowGeometry, apartmentWindowMaterial);
         windowFront.position.set(i * 3, 5 + floor * 3, 4.51);
         apartmentGroup.add(windowFront);
         
         // Janelas traseiras
-        const windowBack = new THREE.Mesh(windowGeometry, windowMaterial);
+        const windowBack = new THREE.Mesh(windowGeometry, apartmentWindowMaterial);
         windowBack.position.set(i * 3, 5 + floor * 3, -4.51);
         windowBack.rotation.y = Math.PI;
         apartmentGroup.add(windowBack);
         
         // Janelas laterais
         if (i !== 0 || floor % 2 === 0) { // Menos janelas nas laterais
-          const windowLeft = new THREE.Mesh(windowGeometry, windowMaterial);
+          const windowLeft = new THREE.Mesh(windowGeometry, apartmentWindowMaterial);
           windowLeft.position.set(-4.51, 5 + floor * 3, i * 3);
           windowLeft.rotation.y = -Math.PI / 2;
           apartmentGroup.add(windowLeft);
           
-          const windowRight = new THREE.Mesh(windowGeometry, windowMaterial);
+          const windowRight = new THREE.Mesh(windowGeometry, apartmentWindowMaterial);
           windowRight.position.set(4.51, 5 + floor * 3, i * 3);
           windowRight.rotation.y = Math.PI / 2;
           apartmentGroup.add(windowRight);
@@ -148,15 +176,10 @@ export class BuildingManager {
     shopGroup.add(shopRoof);
     
     // Vitrine
+    const shopWindowMaterial = windowMaterial.clone();
+    this.windowMaterials.push(shopWindowMaterial);
     const vitrineGeometry = new THREE.PlaneGeometry(8, 4);
-    const vitrineMaterial = new THREE.MeshStandardMaterial({ 
-      color: 0xADD8E6,
-      transparent: true,
-      opacity: 0.9,
-      metalness: 0.5,
-      roughness: 0.1
-    });
-    const vitrine = new THREE.Mesh(vitrineGeometry, vitrineMaterial);
+    const vitrine = new THREE.Mesh(vitrineGeometry, shopWindowMaterial);
     vitrine.position.set(0, 3, 4.01);
     shopGroup.add(vitrine);
     
@@ -194,13 +217,15 @@ export class BuildingManager {
     hotelGroup.add(antenna);
     
     // Janelas (em grade)
+    const hotelWindowMaterial = windowMaterial.clone();
+    this.windowMaterials.push(hotelWindowMaterial);
     for (let floor = 0; floor < 8; floor++) {
       for (let i = -2; i <= 2; i++) {
         if (i !== 0 || floor % 3 !== 1) { // Padrão mais variado
           // Janelas frontais
           const windowFront = new THREE.Mesh(
             new THREE.PlaneGeometry(1.5, 1.5),
-            windowMaterial
+            hotelWindowMaterial
           );
           windowFront.position.set(i * 2.2, 4 + floor * 3, 6.01);
           hotelGroup.add(windowFront);
@@ -208,7 +233,7 @@ export class BuildingManager {
           // Janelas traseiras
           const windowBack = new THREE.Mesh(
             new THREE.PlaneGeometry(1.5, 1.5),
-            windowMaterial
+            hotelWindowMaterial
           );
           windowBack.position.set(i * 2.2, 4 + floor * 3, -6.01);
           windowBack.rotation.y = Math.PI;
@@ -219,7 +244,7 @@ export class BuildingManager {
         if (floor % 2 === 0 || i % 2 === 0) {
           const windowLeft = new THREE.Mesh(
             new THREE.PlaneGeometry(1.5, 1.5),
-            windowMaterial
+            hotelWindowMaterial
           );
           windowLeft.position.set(-6.01, 4 + floor * 3, i * 2.2);
           windowLeft.rotation.y = -Math.PI / 2;
@@ -227,7 +252,7 @@ export class BuildingManager {
           
           const windowRight = new THREE.Mesh(
             new THREE.PlaneGeometry(1.5, 1.5),
-            windowMaterial
+            hotelWindowMaterial
           );
           windowRight.position.set(6.01, 4 + floor * 3, i * 2.2);
           windowRight.rotation.y = Math.PI / 2;
@@ -461,6 +486,123 @@ export class BuildingManager {
           this.placeBuilding(x, y, type);
         }
       }
+    }
+  }
+  
+  // Método para registrar o LightingManager posteriormente
+  public registerLightingManager(manager: LightingManager): void {
+    this.lightingManager = manager;
+    this.setupLightingEvents();
+  }
+  
+  // Configurar eventos de iluminação
+  private setupLightingEvents(): void {
+    if (!this.lightingManager) return;
+    
+    // Atualizar o estado inicial das janelas
+    this.updateWindowLights();
+    
+    // Registrar para atualizações
+    this.lightingManager.onTimeChanged(() => {
+      this.updateWindowLights();
+    });
+  }
+  
+  // Método para atualizar a iluminação das janelas
+  public updateWindowLights(): void {
+    if (!this.lightingManager) return;
+    
+    const currentTime = Date.now();
+    const hour = this.lightingManager.getDayProgress() * 24;
+    
+    // Verificar se é noite
+    const isDark = hour >= this.lightingManager.getSunsetTime() || 
+                   hour < this.lightingManager.getSunriseTime();
+    
+    // Verificar se mudamos de dia para noite ou vice-versa
+    const timeStateChanged = isDark !== this.lastTimeState;
+    
+    // Verificar se é hora de atualizar o padrão de janelas acesas
+    // Atualizamos apenas em 3 casos:
+    // 1. Primeira atualização (windowLightStates está vazio)
+    // 2. Mudança de estado dia/noite
+    // 3. Intervalo de tempo definido passou
+    const shouldUpdatePattern = 
+      this.windowLightStates.size === 0 || 
+      timeStateChanged || 
+      (currentTime - this.lastLightUpdate > this.lightUpdateInterval);
+    
+    // Atualizar estado de referência
+    this.lastTimeState = isDark;
+    
+    // Se for para atualizar o padrão...
+    if (shouldUpdatePattern) {
+      console.log(`Atualizando padrão de janelas iluminadas. Noite: ${isDark}`);
+      this.lastLightUpdate = currentTime;
+      
+      // Iterar todos os materiais de janelas
+      for (const material of this.windowMaterials) {
+        // Decidir se esta janela ficará acesa ou apagada (apenas à noite)
+        if (isDark) {
+          // Durante a noite, decidir se a janela fica acesa com base no horário
+          if (hour >= 21 || hour < 5) {
+            // Noite profunda - 60% das janelas acesas
+            this.windowLightStates.set(material, Math.random() > 0.4 ? 0.8 : 0);
+          } else {
+            // Entardecer/amanhecer - 80% das janelas acesas
+            this.windowLightStates.set(material, Math.random() > 0.2 ? 0.6 : 0);
+          }
+        } else {
+          // Durante o dia, todas as janelas apagadas
+          this.windowLightStates.set(material, 0);
+        }
+      }
+    }
+    
+    // Aplicar os estados de iluminação (sejam eles novos ou existentes)
+    for (const material of this.windowMaterials) {
+      const intensity = this.windowLightStates.get(material) || 0;
+      
+      if (intensity > 0) {
+        material.emissive.set(0xffffaa); // Cor amarelada
+        material.emissiveIntensity = intensity;
+      } else {
+        material.emissiveIntensity = 0;
+      }
+    }
+  }
+
+  // Adicione este método à classe BuildingManager
+  private simulateRandomLightChanges(): void {
+    // Se for dia ou não tiver janelas, ignorar
+    if (!this.lastTimeState || this.windowMaterials.length === 0) return;
+    
+    // Escolher aleatoriamente uma janela para mudar de estado
+    const randomIndex = Math.floor(Math.random() * this.windowMaterials.length);
+    const material = this.windowMaterials[randomIndex];
+    
+    // Inverter o estado atual (se acesa, apaga; se apagada, acende)
+    const currentIntensity = this.windowLightStates.get(material) || 0;
+    
+    if (currentIntensity > 0) {
+      // Apagar a janela (20% de chance)
+      if (Math.random() < 0.2) {
+        this.windowLightStates.set(material, 0);
+      }
+    } else {
+      // Acender a janela (5% de chance)
+      if (Math.random() < 0.05) {
+        this.windowLightStates.set(material, 0.6);
+      }
+    }
+  }
+
+  // No método update da classe BuildingManager
+  public update(currentTime: number): void {
+    // Simular mudanças aleatórias de luzes ocasionalmente
+    if (currentTime - this.lastLightSimulation > this.lightSimulationInterval) {
+      this.lastLightSimulation = currentTime;
+      this.simulateRandomLightChanges();
     }
   }
 }
