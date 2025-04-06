@@ -1148,3 +1148,6 @@ console.log(`- LightingManager possui setTimeOfDay: ${typeof lightingManager.set
 console.log(`- LightingManager possui getDayProgress: ${typeof lightingManager.getDayProgress === 'function'}`);
 console.log(`- LightingManager possui setDayDuration: ${typeof lightingManager.setDayDuration === 'function'}`);
 console.log(`- TimeController inicializado: ${typeof timeController !== 'undefined'}`);
+
+// Iniciar o loop de animação no carregamento inicial
+animate();
